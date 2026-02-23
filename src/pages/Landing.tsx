@@ -65,7 +65,7 @@ const Landing = () => {
           </button>
 
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/auth")}
             className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
           >
             Ya tengo cuenta · Iniciar sesión

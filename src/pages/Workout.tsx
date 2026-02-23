@@ -48,6 +48,9 @@ const Workout = () => {
   };
 
   const updateSetValue = (exIdx: number, setIdx: number, field: "reps" | "weight", value: number) => {
+    if (isNaN(value) || value < 0) return;
+    if (field === "weight" && value > 500) return;
+    if (field === "reps" && value > 100) return;
     setExercises(prev => prev.map((ex, ei) =>
       ei === exIdx
         ? { ...ex, sets: ex.sets.map((s, si) => si === setIdx ? { ...s, [field]: value } : s) }
@@ -144,6 +147,9 @@ const Workout = () => {
                 <div className="flex justify-center">
                   <input
                     type="number"
+                    min="0"
+                    max="500"
+                    step="0.5"
                     value={set.weight}
                     onChange={(e) => updateSetValue(currentExIdx, si, "weight", Number(e.target.value))}
                     className="w-16 h-9 rounded-lg bg-secondary border border-border/50 text-center text-sm font-semibold text-foreground focus:border-primary focus:outline-none"
@@ -152,6 +158,8 @@ const Workout = () => {
                 <div className="flex justify-center">
                   <input
                     type="number"
+                    min="0"
+                    max="100"
                     value={set.reps}
                     onChange={(e) => updateSetValue(currentExIdx, si, "reps", Number(e.target.value))}
                     className="w-16 h-9 rounded-lg bg-secondary border border-border/50 text-center text-sm font-semibold text-foreground focus:border-primary focus:outline-none"

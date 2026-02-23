@@ -44,7 +44,7 @@ Vireon Fit combines:
 ---
 
 ## 📦 Project Structure
-
+```
 src/
 ├── components/
 ├── pages/
@@ -53,7 +53,7 @@ src/
 ├── lib/
 ├── assets/
 
-
+```
 ---
 
 ## 🔐 Backend

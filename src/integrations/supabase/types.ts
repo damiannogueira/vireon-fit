@@ -14,16 +14,495 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      achievements: {
+        Row: {
+          created_at: string
+          description: string | null
+          gym_id: string | null
+          icon: string | null
+          id: string
+          is_global: boolean | null
+          name: string
+          requirement_type: string | null
+          requirement_value: number | null
+          xp_reward: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          gym_id?: string | null
+          icon?: string | null
+          id?: string
+          is_global?: boolean | null
+          name: string
+          requirement_type?: string | null
+          requirement_value?: number | null
+          xp_reward?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          gym_id?: string | null
+          icon?: string | null
+          id?: string
+          is_global?: boolean | null
+          name?: string
+          requirement_type?: string | null
+          requirement_value?: number | null
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievements_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercises: {
+        Row: {
+          created_at: string
+          description: string | null
+          gym_id: string | null
+          id: string
+          image_url: string | null
+          is_global: boolean | null
+          muscle_group: Database["public"]["Enums"]["muscle_group"]
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          gym_id?: string | null
+          id?: string
+          image_url?: string | null
+          is_global?: boolean | null
+          muscle_group: Database["public"]["Enums"]["muscle_group"]
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          gym_id?: string | null
+          id?: string
+          image_url?: string | null
+          is_global?: boolean | null
+          muscle_group?: Database["public"]["Enums"]["muscle_group"]
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_members: {
+        Row: {
+          gym_id: string
+          id: string
+          is_active: boolean | null
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          gym_id: string
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          gym_id?: string
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_members_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gyms: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name: string
+          owner_id?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          name?: string
+          owner_id?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      onboarding_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_step: number | null
+          fitness_goal: string | null
+          id: string
+          preferred_days: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          fitness_goal?: string | null
+          id?: string
+          preferred_days?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          fitness_goal?: string | null
+          id?: string
+          preferred_days?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          fitness_level: Database["public"]["Enums"]["fitness_level"] | null
+          gym_id: string | null
+          id: string
+          level: number
+          onboarding_completed: boolean | null
+          streak_days: number
+          updated_at: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          fitness_level?: Database["public"]["Enums"]["fitness_level"] | null
+          gym_id?: string | null
+          id?: string
+          level?: number
+          onboarding_completed?: boolean | null
+          streak_days?: number
+          updated_at?: string
+          user_id: string
+          xp?: number
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          fitness_level?: Database["public"]["Enums"]["fitness_level"] | null
+          gym_id?: string | null
+          id?: string
+          level?: number
+          onboarding_completed?: boolean | null
+          streak_days?: number
+          updated_at?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          awarded_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          awarded_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          awarded_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          gym_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          gym_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          gym_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_exercises: {
+        Row: {
+          exercise_id: string
+          id: string
+          reps: number | null
+          rest_seconds: number | null
+          sets: number | null
+          sort_order: number | null
+          workout_id: string
+        }
+        Insert: {
+          exercise_id: string
+          id?: string
+          reps?: number | null
+          rest_seconds?: number | null
+          sets?: number | null
+          sort_order?: number | null
+          workout_id: string
+        }
+        Update: {
+          exercise_id?: string
+          id?: string
+          reps?: number | null
+          rest_seconds?: number | null
+          sets?: number | null
+          sort_order?: number | null
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_exercises_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_minutes: number | null
+          gym_id: string | null
+          id: string
+          notes: string | null
+          started_at: string
+          user_id: string
+          workout_id: string | null
+          xp_earned: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          gym_id?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          user_id: string
+          workout_id?: string | null
+          xp_earned?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          gym_id?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          user_id?: string
+          workout_id?: string | null
+          xp_earned?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_logs_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_logs_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workouts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: Database["public"]["Enums"]["fitness_level"] | null
+          estimated_duration: number | null
+          gym_id: string | null
+          id: string
+          is_global: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: Database["public"]["Enums"]["fitness_level"] | null
+          estimated_duration?: number | null
+          gym_id?: string | null
+          id?: string
+          is_global?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: Database["public"]["Enums"]["fitness_level"] | null
+          estimated_duration?: number | null
+          gym_id?: string | null
+          id?: string
+          is_global?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workouts_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_profile_id_from_auth: { Args: never; Returns: string }
+      get_user_gym_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_gym_admin: {
+        Args: { _gym_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_member_of_gym: {
+        Args: { _gym_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "gym_admin" | "user"
+      fitness_level: "beginner" | "intermediate" | "advanced" | "elite"
+      muscle_group:
+        | "chest"
+        | "back"
+        | "shoulders"
+        | "biceps"
+        | "triceps"
+        | "legs"
+        | "core"
+        | "cardio"
+        | "full_body"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +629,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "gym_admin", "user"],
+      fitness_level: ["beginner", "intermediate", "advanced", "elite"],
+      muscle_group: [
+        "chest",
+        "back",
+        "shoulders",
+        "biceps",
+        "triceps",
+        "legs",
+        "core",
+        "cardio",
+        "full_body",
+      ],
+    },
   },
 } as const
