@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronRight, Dumbbell, Users } from "lucide-react";
+import { ChevronRight, Download, Dumbbell, Users } from "lucide-react";
 import heroImage from "@/assets/hero-fitness.jpg";
 
 const Landing = () => {
@@ -62,6 +62,14 @@ const Landing = () => {
           >
             <Users className="w-5 h-5" />
             Soy un Gimnasio
+          </button>
+
+          <button
+            onClick={() => navigate("/install")}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
+          >
+            <Download className="w-4 h-4" />
+            Instalar App
           </button>
 
           <button

@@ -14,6 +14,7 @@ import Workout from "./pages/Workout";
 import Achievements from "./pages/Achievements";
 import Profile from "./pages/Profile";
 import GymDashboard from "./pages/GymDashboard";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/gym" element={<ProtectedRoute><GymDashboard /></ProtectedRoute>} />
+            <Route path="/install" element={<Install />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
