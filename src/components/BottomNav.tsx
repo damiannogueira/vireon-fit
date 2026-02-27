@@ -1,18 +1,20 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Dumbbell, Trophy, User, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { path: "/dashboard", icon: Home, label: "Inicio" },
-  { path: "/workout", icon: Dumbbell, label: "Entreno" },
-  { path: "/gym", icon: LayoutGrid, label: "Gimnasio" },
-  { path: "/achievements", icon: Trophy, label: "Logros" },
-  { path: "/profile", icon: User, label: "Perfil" },
-];
+import { useI18n } from "@/i18n";
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useI18n();
+
+  const navItems = [
+    { path: "/dashboard", icon: Home, label: t.nav.dashboard },
+    { path: "/workout", icon: Dumbbell, label: t.nav.workout },
+    { path: "/gym", icon: LayoutGrid, label: t.nav.gym },
+    { path: "/achievements", icon: Trophy, label: t.nav.achievements },
+    { path: "/profile", icon: User, label: t.nav.profile },
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-border/50">

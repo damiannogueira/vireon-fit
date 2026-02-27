@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Monitor, Smartphone, Tablet, CheckCircle2, Share } from "lucide-react";
 import { motion } from "framer-motion";
+import { useI18n } from "@/i18n";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -11,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 const Install = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -50,7 +52,7 @@ const Install = () => {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4 self-start"
       >
         <ArrowLeft className="w-4 h-4" />
-        Volver
+        {t.common.back}
       </button>
       <div className="flex-1 flex items-center justify-center">
       <motion.div
@@ -63,34 +65,34 @@ const Install = () => {
             <Download className="w-10 h-10 text-primary" />
           </div>
           <h1 className="text-3xl font-display font-bold text-foreground">
-            Instalá Vireon Fit
+            {t.install.title}
           </h1>
           <p className="text-muted-foreground">
-            Instalá la app en tu dispositivo para acceso rápido, uso offline y la mejor experiencia.
+            {t.install.subtitle}
           </p>
         </div>
 
         <div className="flex justify-center gap-6 text-muted-foreground">
           <div className="flex flex-col items-center gap-1.5">
             <Smartphone className="w-6 h-6" />
-            <span className="text-xs">Celular</span>
+            <span className="text-xs">{t.install.phone}</span>
           </div>
           <div className="flex flex-col items-center gap-1.5">
             <Tablet className="w-6 h-6" />
-            <span className="text-xs">Tablet</span>
+            <span className="text-xs">{t.install.tablet}</span>
           </div>
           <div className="flex flex-col items-center gap-1.5">
             <Monitor className="w-6 h-6" />
-            <span className="text-xs">PC</span>
+            <span className="text-xs">{t.install.pc}</span>
           </div>
         </div>
 
         {isInstalled ? (
           <div className="glass rounded-xl p-6 space-y-3">
             <CheckCircle2 className="w-12 h-12 text-primary mx-auto" />
-            <p className="text-foreground font-medium">¡Ya tenés la app instalada!</p>
+            <p className="text-foreground font-medium">{t.install.alreadyInstalled}</p>
             <p className="text-sm text-muted-foreground">
-              Abrila desde tu pantalla de inicio.
+              {t.install.openFromHome}
             </p>
           </div>
         ) : deferredPrompt ? (
@@ -100,37 +102,37 @@ const Install = () => {
             className="w-full text-lg py-6 font-semibold"
           >
             <Download className="w-5 h-5 mr-2" />
-            Instalar ahora
+            {t.install.installNow}
           </Button>
         ) : isIOS ? (
           <div className="glass rounded-xl p-6 space-y-3 text-left">
-            <p className="text-foreground font-medium text-center">Cómo instalar en iOS</p>
+            <p className="text-foreground font-medium text-center">{t.install.iosTitle}</p>
             <ol className="space-y-3 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                <span>Tocá el botón <Share className="w-4 h-4 inline" /> <strong className="text-foreground">Compartir</strong> en Safari</span>
+                <span>{t.install.iosStep1} <Share className="w-4 h-4 inline" /> <strong className="text-foreground">{t.install.iosStep1b}</strong> {t.install.iosStep1c}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                <span>Seleccioná <strong className="text-foreground">"Agregar a pantalla de inicio"</strong></span>
+                <span>{t.install.iosStep2} <strong className="text-foreground">{t.install.iosStep2b}</strong></span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="bg-primary/20 text-primary rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">3</span>
-                <span>Tocá <strong className="text-foreground">"Agregar"</strong></span>
+                <span>{t.install.iosStep3} <strong className="text-foreground">{t.install.iosStep3b}</strong></span>
               </li>
             </ol>
           </div>
         ) : (
           <div className="glass rounded-xl p-6 space-y-3">
-            <p className="text-foreground font-medium">Cómo instalar</p>
+            <p className="text-foreground font-medium">{t.install.howToInstall}</p>
             <p className="text-sm text-muted-foreground">
-              Abrí esta página en Chrome, Edge o Safari y usá la opción de instalar del navegador.
+              {t.install.howToInstallDesc}
             </p>
           </div>
         )}
 
         <div className="space-y-2 text-xs text-muted-foreground">
-          <p>✓ Sin app stores · ✓ Actualizaciones automáticas · ✓ Funciona offline</p>
+          <p>{t.install.features}</p>
         </div>
       </motion.div>
       </div>

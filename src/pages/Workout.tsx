@@ -4,10 +4,11 @@ import { ChevronLeft, Play, Pause, SkipForward, Check, Timer, TrendingUp } from 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { XPBar } from "@/components/XPBar";
+import { useI18n } from "@/i18n";
 
 interface Exercise {
   id: string;
-  name: string;
+  nameKey: string;
   sets: SetData[];
   restSeconds: number;
   notes?: string;
@@ -19,25 +20,27 @@ interface SetData {
   completed: boolean;
 }
 
-const mockExercises: Exercise[] = [
-  { id: "1", name: "Press Banca", sets: [{ reps: 10, weight: 60, completed: false }, { reps: 8, weight: 65, completed: false }, { reps: 8, weight: 65, completed: false }, { reps: 6, weight: 70, completed: false }], restSeconds: 120 },
-  { id: "2", name: "Press Inclinado Mancuernas", sets: [{ reps: 12, weight: 22, completed: false }, { reps: 10, weight: 24, completed: false }, { reps: 10, weight: 24, completed: false }], restSeconds: 90 },
-  { id: "3", name: "Aperturas en Polea", sets: [{ reps: 15, weight: 15, completed: false }, { reps: 12, weight: 17, completed: false }, { reps: 12, weight: 17, completed: false }], restSeconds: 60 },
-  { id: "4", name: "Press Militar", sets: [{ reps: 10, weight: 40, completed: false }, { reps: 8, weight: 42, completed: false }, { reps: 8, weight: 42, completed: false }], restSeconds: 90 },
-  { id: "5", name: "Elevaciones Laterales", sets: [{ reps: 15, weight: 10, completed: false }, { reps: 12, weight: 12, completed: false }, { reps: 12, weight: 12, completed: false }], restSeconds: 60 },
-  { id: "6", name: "Tríceps en Polea", sets: [{ reps: 15, weight: 25, completed: false }, { reps: 12, weight: 27, completed: false }, { reps: 12, weight: 27, completed: false }], restSeconds: 60 },
-];
-
 const Workout = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
+
+  const mockExercises: Exercise[] = [
+    { id: "1", nameKey: "benchPress", sets: [{ reps: 10, weight: 60, completed: false }, { reps: 8, weight: 65, completed: false }, { reps: 8, weight: 65, completed: false }, { reps: 6, weight: 70, completed: false }], restSeconds: 120 },
+    { id: "2", nameKey: "inclineDB", sets: [{ reps: 12, weight: 22, completed: false }, { reps: 10, weight: 24, completed: false }, { reps: 10, weight: 24, completed: false }], restSeconds: 90 },
+    { id: "3", nameKey: "cableFly", sets: [{ reps: 15, weight: 15, completed: false }, { reps: 12, weight: 17, completed: false }, { reps: 12, weight: 17, completed: false }], restSeconds: 60 },
+    { id: "4", nameKey: "militaryPress", sets: [{ reps: 10, weight: 40, completed: false }, { reps: 8, weight: 42, completed: false }, { reps: 8, weight: 42, completed: false }], restSeconds: 90 },
+    { id: "5", nameKey: "lateralRaise", sets: [{ reps: 15, weight: 10, completed: false }, { reps: 12, weight: 12, completed: false }, { reps: 12, weight: 12, completed: false }], restSeconds: 60 },
+    { id: "6", nameKey: "tricepsPushdown", sets: [{ reps: 15, weight: 25, completed: false }, { reps: 12, weight: 27, completed: false }, { reps: 12, weight: 27, completed: false }], restSeconds: 60 },
+  ];
+
   const [exercises, setExercises] = useState<Exercise[]>(mockExercises);
   const [currentExIdx, setCurrentExIdx] = useState(0);
-  const [resting, setResting] = useState(false);
-  const [restTime, setRestTime] = useState(0);
 
   const currentExercise = exercises[currentExIdx];
   const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0);
   const completedSets = exercises.reduce((a, e) => a + e.sets.filter(s => s.completed).length, 0);
+
+  const getExName = (key: string) => (t.workout as Record<string, string>)[key] || key;
 
   const completeSet = (exIdx: number, setIdx: number) => {
     setExercises(prev => prev.map((ex, ei) =>
@@ -68,13 +71,13 @@ const Workout = () => {
           </button>
           <div className="text-center">
             <h1 className="text-sm font-bold text-foreground">Push Day</h1>
-            <p className="text-xs text-muted-foreground">Pecho, Hombros, Tríceps</p>
+            <p className="text-xs text-muted-foreground">{t.dashboard.chest}, {t.dashboard.shoulders}, {t.dashboard.triceps}</p>
           </div>
           <button
             onClick={() => navigate("/dashboard")}
             className="text-xs font-semibold text-primary"
           >
-            Finalizar
+            {t.workout.finish}
           </button>
         </div>
         <XPBar current={completedSets} max={totalSets} variant="xp" size="sm" showValues={false} />
@@ -97,7 +100,7 @@ const Workout = () => {
                   : "bg-secondary text-muted-foreground"
               )}
             >
-              {i + 1}. {ex.name.split(" ")[0]}
+              {i + 1}. {getExName(ex.nameKey).split(" ")[0]}
             </button>
           );
         })}
@@ -113,12 +116,12 @@ const Workout = () => {
           className="px-4"
         >
           <div className="mb-4">
-            <h2 className="text-xl font-display font-bold text-foreground">{currentExercise.name}</h2>
+            <h2 className="text-xl font-display font-bold text-foreground">{getExName(currentExercise.nameKey)}</h2>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Timer className="w-3 h-3" /> {currentExercise.restSeconds}s descanso
+                <Timer className="w-3 h-3" /> {currentExercise.restSeconds}s {t.workout.rest}
               </span>
-              <span className="text-xs text-muted-foreground">{currentExercise.sets.length} series</span>
+              <span className="text-xs text-muted-foreground">{currentExercise.sets.length} {t.workout.sets}</span>
             </div>
           </div>
 
@@ -187,7 +190,7 @@ const Workout = () => {
                 onClick={() => setCurrentExIdx(i => i - 1)}
                 className="flex-1 h-12 rounded-2xl bg-secondary text-secondary-foreground font-semibold transition-all hover:bg-secondary/80"
               >
-                Anterior
+                {t.workout.previous}
               </button>
             )}
             {currentExIdx < exercises.length - 1 ? (
@@ -195,14 +198,14 @@ const Workout = () => {
                 onClick={() => setCurrentExIdx(i => i + 1)}
                 className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_hsl(142_72%_50%/0.2)] transition-all active:scale-[0.98]"
               >
-                Siguiente <SkipForward className="w-4 h-4" />
+                {t.workout.next} <SkipForward className="w-4 h-4" />
               </button>
             ) : (
               <button
                 onClick={() => navigate("/dashboard")}
                 className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_hsl(142_72%_50%/0.2)] transition-all active:scale-[0.98]"
               >
-                Completar Entreno 🏆
+                {t.workout.completeWorkout}
               </button>
             )}
           </div>

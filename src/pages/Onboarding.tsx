@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, Target, Zap, Calendar, Clock, Dumbbell, AlertCircle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Target, Zap, Calendar, Clock, Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 type Goal = "hipertrofia" | "fuerza" | "resistencia" | "perdida_grasa";
 type Level = "principiante" | "intermedio" | "avanzado";
@@ -15,25 +16,9 @@ interface OnboardingData {
   equipment: string[];
 }
 
-const goals: { id: Goal; label: string; emoji: string; desc: string }[] = [
-  { id: "hipertrofia", label: "Hipertrofia", emoji: "💪", desc: "Ganar masa muscular" },
-  { id: "fuerza", label: "Fuerza", emoji: "🏋️", desc: "Mover más peso" },
-  { id: "resistencia", label: "Resistencia", emoji: "🔥", desc: "Aguantar más" },
-  { id: "perdida_grasa", label: "Pérdida de grasa", emoji: "⚡", desc: "Definir y quemar" },
-];
-
-const levels: { id: Level; label: string; desc: string; months: string }[] = [
-  { id: "principiante", label: "Principiante", desc: "Menos de 6 meses", months: "0-6" },
-  { id: "intermedio", label: "Intermedio", desc: "6 meses a 2 años", months: "6-24" },
-  { id: "avanzado", label: "Avanzado", desc: "Más de 2 años", months: "24+" },
-];
-
-const equipmentOptions = [
-  "Barra", "Mancuernas", "Máquinas", "Poleas", "Peso corporal", "Bandas", "Kettlebell", "TRX",
-];
-
 const Onboarding = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     goal: null,
@@ -42,6 +27,24 @@ const Onboarding = () => {
     duration: 60,
     equipment: [],
   });
+
+  const goals: { id: Goal; label: string; emoji: string; desc: string }[] = [
+    { id: "hipertrofia", label: t.onboarding.hypertrophy, emoji: "💪", desc: t.onboarding.hypertrophyDesc },
+    { id: "fuerza", label: t.onboarding.strength, emoji: "🏋️", desc: t.onboarding.strengthDesc },
+    { id: "resistencia", label: t.onboarding.endurance, emoji: "🔥", desc: t.onboarding.enduranceDesc },
+    { id: "perdida_grasa", label: t.onboarding.fatLoss, emoji: "⚡", desc: t.onboarding.fatLossDesc },
+  ];
+
+  const levels: { id: Level; label: string; desc: string; months: string }[] = [
+    { id: "principiante", label: t.onboarding.beginner, desc: t.onboarding.beginnerDesc, months: "0-6" },
+    { id: "intermedio", label: t.onboarding.intermediateLabel, desc: t.onboarding.intermediateDesc, months: "6-24" },
+    { id: "avanzado", label: t.onboarding.advanced, desc: t.onboarding.advancedDesc, months: "24+" },
+  ];
+
+  const equipmentOptions = [
+    t.onboarding.barbell, t.onboarding.dumbbells, t.onboarding.machines, t.onboarding.cables,
+    t.onboarding.bodyweight, t.onboarding.bands, t.onboarding.kettlebell, t.onboarding.trx,
+  ];
 
   const totalSteps = 5;
 
@@ -103,9 +106,9 @@ const Onboarding = () => {
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Target className="inline w-6 h-6 text-primary mr-2" />
-                ¿Cuál es tu objetivo?
+                {t.onboarding.whatGoal}
               </h2>
-              <p className="text-muted-foreground text-sm mb-6">Esto nos ayuda a crear tu rutina ideal</p>
+              <p className="text-muted-foreground text-sm mb-6">{t.onboarding.goalHelp}</p>
               <div className="space-y-3">
                 {goals.map(g => (
                   <button
@@ -133,9 +136,9 @@ const Onboarding = () => {
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Zap className="inline w-6 h-6 text-primary mr-2" />
-                ¿Tu nivel de experiencia?
+                {t.onboarding.expLevel}
               </h2>
-              <p className="text-muted-foreground text-sm mb-6">Adaptaremos la intensidad a tu nivel</p>
+              <p className="text-muted-foreground text-sm mb-6">{t.onboarding.expHelp}</p>
               <div className="space-y-3">
                 {levels.map(l => (
                   <button
@@ -152,7 +155,7 @@ const Onboarding = () => {
                       <span className="font-semibold text-foreground">{l.label}</span>
                       <p className="text-xs text-muted-foreground">{l.desc}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-lg">{l.months} meses</span>
+                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-lg">{l.months} {t.onboarding.months}</span>
                   </button>
                 ))}
               </div>
@@ -163,9 +166,9 @@ const Onboarding = () => {
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Calendar className="inline w-6 h-6 text-primary mr-2" />
-                ¿Cuántos días entrenas?
+                {t.onboarding.howManyDays}
               </h2>
-              <p className="text-muted-foreground text-sm mb-8">Días por semana disponibles</p>
+              <p className="text-muted-foreground text-sm mb-8">{t.onboarding.daysAvailable}</p>
               <div className="flex items-center justify-center gap-6 mb-8">
                 <button
                   onClick={() => setData(d => ({ ...d, days: Math.max(2, d.days - 1) }))}
@@ -175,7 +178,7 @@ const Onboarding = () => {
                 </button>
                 <div className="text-center">
                   <span className="text-6xl font-display font-black text-primary text-glow-primary">{data.days}</span>
-                  <p className="text-sm text-muted-foreground mt-1">días/semana</p>
+                  <p className="text-sm text-muted-foreground mt-1">{t.onboarding.daysPerWeek}</p>
                 </div>
                 <button
                   onClick={() => setData(d => ({ ...d, days: Math.min(7, d.days + 1) }))}
@@ -205,12 +208,12 @@ const Onboarding = () => {
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Clock className="inline w-6 h-6 text-primary mr-2" />
-                ¿Duración por sesión?
+                {t.onboarding.sessionDuration}
               </h2>
-              <p className="text-muted-foreground text-sm mb-8">Minutos por entrenamiento</p>
+              <p className="text-muted-foreground text-sm mb-8">{t.onboarding.minutesPerSession}</p>
               <div className="text-center mb-8">
                 <span className="text-6xl font-display font-black text-primary text-glow-primary">{data.duration}</span>
-                <p className="text-sm text-muted-foreground mt-1">minutos</p>
+                <p className="text-sm text-muted-foreground mt-1">{t.onboarding.minutesLabel}</p>
               </div>
               <div className="flex justify-center gap-3 flex-wrap">
                 {[30, 45, 60, 75, 90].map(d => (
@@ -222,7 +225,7 @@ const Onboarding = () => {
                       data.duration === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {d} min
+                    {d} {t.common.minutes}
                   </button>
                 ))}
               </div>
@@ -233,9 +236,9 @@ const Onboarding = () => {
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Dumbbell className="inline w-6 h-6 text-primary mr-2" />
-                ¿Qué equipamiento tienes?
+                {t.onboarding.whatEquipment}
               </h2>
-              <p className="text-muted-foreground text-sm mb-6">Selecciona todo lo disponible</p>
+              <p className="text-muted-foreground text-sm mb-6">{t.onboarding.selectAll}</p>
               <div className="grid grid-cols-2 gap-3">
                 {equipmentOptions.map(eq => (
                   <button
@@ -269,7 +272,7 @@ const Onboarding = () => {
               : "bg-secondary text-muted-foreground cursor-not-allowed"
           )}
         >
-          {step === totalSteps - 1 ? "Generar mi Rutina" : "Continuar"}
+          {step === totalSteps - 1 ? t.onboarding.generateRoutine : t.onboarding.continue}
           <ChevronRight className="w-5 h-5" />
         </button>
       </motion.div>

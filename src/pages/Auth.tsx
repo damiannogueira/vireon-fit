@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeAuthError } from "@/lib/auth-errors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
+import { useI18n } from "@/i18n";
 
 type AuthMode = "login" | "signup" | "forgot";
 
@@ -14,6 +15,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +35,7 @@ const Auth = () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      toast({ title: "Error al iniciar sesión", description: sanitizeAuthError(error), variant: "destructive" });
+      toast({ title: t.auth.loginError, description: sanitizeAuthError(error), variant: "destructive" });
     } else {
       navigate("/dashboard");
     }
@@ -52,9 +54,9 @@ const Auth = () => {
     });
     setLoading(false);
     if (error) {
-      toast({ title: "Error al registrarse", description: sanitizeAuthError(error), variant: "destructive" });
+      toast({ title: t.auth.signupError, description: sanitizeAuthError(error), variant: "destructive" });
     } else {
-      toast({ title: "¡Cuenta creada!", description: "Revisa tu correo para confirmar tu cuenta." });
+      toast({ title: t.auth.accountCreated, description: t.auth.checkEmail });
     }
   };
 
@@ -66,22 +68,22 @@ const Auth = () => {
     });
     setLoading(false);
     if (error) {
-      toast({ title: "Error", description: sanitizeAuthError(error), variant: "destructive" });
+      toast({ title: t.auth.error, description: sanitizeAuthError(error), variant: "destructive" });
     } else {
-      toast({ title: "Correo enviado", description: "Revisa tu bandeja para restablecer tu contraseña." });
+      toast({ title: t.auth.emailSent, description: t.auth.checkInbox });
     }
   };
 
   const titles: Record<AuthMode, string> = {
-    login: "Bienvenido de vuelta",
-    signup: "Crea tu cuenta",
-    forgot: "Recupera tu contraseña",
+    login: t.auth.welcomeBack,
+    signup: t.auth.createAccount,
+    forgot: t.auth.recoverPassword,
   };
 
   const subtitles: Record<AuthMode, string> = {
-    login: "Inicia sesión para continuar tu entrenamiento",
-    signup: "Empieza tu aventura fitness hoy",
-    forgot: "Te enviaremos un enlace para restablecer tu contraseña",
+    login: t.auth.loginSubtitle,
+    signup: t.auth.signupSubtitle,
+    forgot: t.auth.forgotSubtitle,
   };
 
   return (
@@ -122,7 +124,7 @@ const Auth = () => {
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Nombre"
+                placeholder={t.auth.name}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="w-full h-13 pl-11 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
@@ -135,7 +137,7 @@ const Auth = () => {
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="email"
-              placeholder="Email"
+              placeholder={t.auth.email}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full h-13 pl-11 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
@@ -148,7 +150,7 @@ const Auth = () => {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Contraseña"
+                placeholder={t.auth.password}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full h-13 pl-11 pr-12 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
@@ -168,7 +170,7 @@ const Auth = () => {
 
         {mode === "login" && (
           <button type="button" onClick={() => setMode("forgot")} className="text-sm text-primary hover:text-primary/80 mb-6 text-left transition-colors">
-            ¿Olvidaste tu contraseña?
+            {t.auth.forgotPassword}
           </button>
         )}
 
@@ -178,27 +180,27 @@ const Auth = () => {
           className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-lg shadow-[var(--shadow-glow-primary)] hover:brightness-110 transition-all duration-300 active:scale-[0.98] disabled:opacity-50"
         >
           {loading
-            ? "Cargando..."
+            ? t.common.loading
             : mode === "login"
-            ? "Iniciar Sesión"
+            ? t.auth.login
             : mode === "signup"
-            ? "Crear Cuenta"
-            : "Enviar enlace"}
+            ? t.auth.createAccountBtn
+            : t.auth.sendLink}
         </button>
 
         <div className="mt-auto pt-8 text-center">
           {mode === "login" ? (
             <p className="text-sm text-muted-foreground">
-              ¿No tienes cuenta?{" "}
+              {t.auth.noAccount}{" "}
               <button type="button" onClick={() => setMode("signup")} className="text-primary font-semibold hover:text-primary/80 transition-colors">
-                Regístrate
+                {t.auth.register}
               </button>
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              ¿Ya tienes cuenta?{" "}
+              {t.auth.haveAccount}{" "}
               <button type="button" onClick={() => setMode("login")} className="text-primary font-semibold hover:text-primary/80 transition-colors">
-                Inicia sesión
+                {t.auth.login}
               </button>
             </p>
           )}

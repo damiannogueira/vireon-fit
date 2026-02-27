@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronRight, Download, Dumbbell, Users } from "lucide-react";
+import { ChevronRight, Download, Dumbbell, Users, Globe, CreditCard } from "lucide-react";
+import { useI18n } from "@/i18n";
 import heroImage from "@/assets/hero-fitness.jpg";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { t, locale, setLocale } = useI18n();
 
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden bg-background">
@@ -14,8 +16,19 @@ const Landing = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/70 to-background" />
       </div>
 
+      {/* Language toggle */}
+      <div className="relative z-20 flex justify-end p-4">
+        <button
+          onClick={() => setLocale(locale === "es" ? "en" : "es")}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/80 backdrop-blur border border-border/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Globe className="w-3.5 h-3.5" />
+          {locale === "es" ? "EN" : "ES"}
+        </button>
+      </div>
+
       {/* Content */}
-      <div className="relative z-10 flex-1 flex flex-col justify-end px-6 pb-12 pt-20">
+      <div className="relative z-10 flex-1 flex flex-col justify-end px-6 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -32,13 +45,13 @@ const Landing = () => {
           </div>
 
           <h1 className="text-4xl font-display font-black leading-[1.1] text-foreground mb-3">
-            Entrena.<br />
-            <span className="text-primary text-glow-primary">Sube de nivel.</span><br />
-            Conquista.
+            {t.landing.tagline1}<br />
+            <span className="text-primary text-glow-primary">{t.landing.tagline2}</span><br />
+            {t.landing.tagline3}
           </h1>
 
           <p className="text-muted-foreground text-base leading-relaxed mb-10 max-w-xs">
-            Rutinas personalizadas con gamificación RPG. Cada rep te acerca a tu mejor versión.
+            {t.landing.subtitle}
           </p>
         </motion.div>
 
@@ -49,34 +62,43 @@ const Landing = () => {
           className="space-y-3"
         >
           <button
-            onClick={() => navigate("/onboarding")}
+            onClick={() => navigate("/auth")}
             className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-lg shadow-[0_0_30px_hsl(142_72%_50%/0.3)] hover:shadow-[0_0_40px_hsl(142_72%_50%/0.5)] transition-all duration-300 active:scale-[0.98]"
           >
-            Comenzar Entrenamiento
+            {t.landing.startTraining}
             <ChevronRight className="w-5 h-5" />
           </button>
 
           <button
-            onClick={() => navigate("/gym")}
+            onClick={() => navigate("/pricing")}
             className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl bg-secondary border border-border text-secondary-foreground font-semibold text-base hover:bg-secondary/80 transition-all duration-200 active:scale-[0.98]"
           >
-            <Users className="w-5 h-5" />
-            Soy un Gimnasio
+            <CreditCard className="w-5 h-5" />
+            {t.landing.viewPricing}
           </button>
 
-          <button
-            onClick={() => navigate("/install")}
-            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
-          >
-            <Download className="w-4 h-4" />
-            Instalar App
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate("/gym")}
+              className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
+            >
+              <Users className="w-4 h-4" />
+              {t.landing.imAGym}
+            </button>
+            <button
+              onClick={() => navigate("/install")}
+              className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
+            >
+              <Download className="w-4 h-4" />
+              {t.landing.installApp}
+            </button>
+          </div>
 
           <button
             onClick={() => navigate("/auth")}
             className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
           >
-            Ya tengo cuenta · Iniciar sesión
+            {t.landing.haveAccount}
           </button>
         </motion.div>
       </div>

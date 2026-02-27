@@ -262,6 +262,57 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          features: Json | null
+          id: string
+          interval: Database["public"]["Enums"]["subscription_interval"]
+          is_active: boolean | null
+          is_highlighted: boolean | null
+          name: string
+          price_eur: number
+          price_usd: number
+          sort_order: number | null
+          target: Database["public"]["Enums"]["subscription_target"]
+          trial_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          interval: Database["public"]["Enums"]["subscription_interval"]
+          is_active?: boolean | null
+          is_highlighted?: boolean | null
+          name: string
+          price_eur?: number
+          price_usd?: number
+          sort_order?: number | null
+          target: Database["public"]["Enums"]["subscription_target"]
+          trial_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          interval?: Database["public"]["Enums"]["subscription_interval"]
+          is_active?: boolean | null
+          is_highlighted?: boolean | null
+          name?: string
+          price_eur?: number
+          price_usd?: number
+          sort_order?: number | null
+          target?: Database["public"]["Enums"]["subscription_target"]
+          trial_days?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_achievements: {
         Row: {
           achievement_id: string
@@ -316,6 +367,60 @@ export type Database = {
             columns: ["gym_id"]
             isOneToOne: false
             referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_subscriptions: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          expires_at: string | null
+          gym_id: string | null
+          id: string
+          plan_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          gym_id?: string | null
+          id?: string
+          plan_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          gym_id?: string | null
+          id?: string
+          plan_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -503,6 +608,15 @@ export type Database = {
         | "core"
         | "cardio"
         | "full_body"
+      subscription_interval:
+        | "free"
+        | "monthly"
+        | "quarterly"
+        | "semi_annual"
+        | "annual"
+        | "trial"
+      subscription_status: "active" | "expired" | "cancelled" | "trial"
+      subscription_target: "individual" | "gym"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -643,6 +757,16 @@ export const Constants = {
         "cardio",
         "full_body",
       ],
+      subscription_interval: [
+        "free",
+        "monthly",
+        "quarterly",
+        "semi_annual",
+        "annual",
+        "trial",
+      ],
+      subscription_status: ["active", "expired", "cancelled", "trial"],
+      subscription_target: ["individual", "gym"],
     },
   },
 } as const

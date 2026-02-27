@@ -6,9 +6,11 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { StatCard } from "@/components/StatCard";
 import { WorkoutCard } from "@/components/WorkoutCard";
 import { useNavigate } from "react-router-dom";
+import { useI18n } from "@/i18n";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -16,7 +18,7 @@ const Dashboard = () => {
       <div className="px-6 pt-8 pb-4">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-sm text-muted-foreground">Bienvenido de vuelta</p>
+            <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
             <h1 className="text-2xl font-display font-bold text-foreground">Guerrero 💪</h1>
           </div>
           <LevelBadge level={7} />
@@ -28,24 +30,24 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           className="p-4 rounded-2xl bg-card border border-border/50 mb-6"
         >
-          <XPBar current={2450} max={3000} label="Experiencia" variant="xp" size="md" />
-          <p className="text-xs text-muted-foreground mt-2">550 XP para Nivel 8</p>
+          <XPBar current={2450} max={3000} label={t.dashboard.experience} variant="xp" size="md" />
+          <p className="text-xs text-muted-foreground mt-2">550 XP {t.dashboard.xpToLevel.replace("{xp}", "").replace("{level}", "8").replace("XP to Level", "→ " + t.profile.level + " 8").replace("XP para Nivel", "→ " + t.profile.level + " 8")}</p>
         </motion.div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-2 mb-6">
-          <StatCard label="Racha" value="12" icon="streak" />
-          <StatCard label="Entrenos" value="48" icon="workouts" />
-          <StatCard label="Kg" value="3.2k" icon="weight" />
-          <StatCard label="Horas" value="36" icon="time" />
+          <StatCard label={t.dashboard.streak} value="12" icon="streak" />
+          <StatCard label={t.dashboard.workouts} value="48" icon="workouts" />
+          <StatCard label={t.dashboard.kg} value="3.2k" icon="weight" />
+          <StatCard label={t.dashboard.hours} value="36" icon="time" />
         </div>
       </div>
 
       {/* Today's Workout */}
       <div className="px-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-display font-bold text-foreground">Hoy</h2>
-          <span className="text-xs text-primary font-semibold">Día 3 de 5</span>
+          <h2 className="text-lg font-display font-bold text-foreground">{t.dashboard.today}</h2>
+          <span className="text-xs text-primary font-semibold">{t.dashboard.dayOf.replace("{current}", "3").replace("{total}", "5")}</span>
         </div>
 
         <motion.div
@@ -63,11 +65,11 @@ const Dashboard = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-foreground">Push Day</h3>
-                <p className="text-sm text-muted-foreground">Pecho, Hombros, Tríceps</p>
+                <p className="text-sm text-muted-foreground">{t.dashboard.chest}, {t.dashboard.shoulders}, {t.dashboard.triceps}</p>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs font-semibold text-xp">+180 XP</span>
-                  <span className="text-xs text-muted-foreground">~60 min</span>
-                  <span className="text-xs text-muted-foreground">6 ejercicios</span>
+                  <span className="text-xs text-muted-foreground">~60 {t.common.minutes}</span>
+                  <span className="text-xs text-muted-foreground">6 {t.common.exercises}</span>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -78,68 +80,29 @@ const Dashboard = () => {
 
       {/* Weekly Schedule */}
       <div className="px-6 mt-8">
-        <h2 className="text-lg font-display font-bold text-foreground mb-3">Esta semana</h2>
+        <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.dashboard.thisWeek}</h2>
         <div className="space-y-3">
-          <WorkoutCard
-            title="Pull Day"
-            subtitle="Espalda, Bíceps"
-            icon={Dumbbell}
-            xp={170}
-            duration="55 min"
-            exercises={6}
-            variant="completed"
-          />
-          <WorkoutCard
-            title="Legs Day"
-            subtitle="Cuádriceps, Isquios, Glúteos"
-            icon={Flame}
-            xp={200}
-            duration="65 min"
-            exercises={7}
-            variant="completed"
-          />
-          <WorkoutCard
-            title="Push Day"
-            subtitle="Pecho, Hombros, Tríceps"
-            icon={Dumbbell}
-            xp={180}
-            duration="60 min"
-            exercises={6}
-            variant="active"
-            onClick={() => navigate("/workout")}
-          />
-          <WorkoutCard
-            title="Pull Day"
-            subtitle="Espalda, Bíceps"
-            icon={Dumbbell}
-            xp={170}
-            duration="55 min"
-            exercises={6}
-          />
-          <WorkoutCard
-            title="Legs Day"
-            subtitle="Cuádriceps, Isquios, Glúteos"
-            icon={Flame}
-            xp={200}
-            duration="65 min"
-            exercises={7}
-          />
+          <WorkoutCard title="Pull Day" subtitle={`${t.dashboard.back}, ${t.dashboard.biceps}`} icon={Dumbbell} xp={170} duration={`55 ${t.common.minutes}`} exercises={6} variant="completed" />
+          <WorkoutCard title="Legs Day" subtitle={`${t.dashboard.quads}, ${t.dashboard.hamstrings}, ${t.dashboard.glutes}`} icon={Flame} xp={200} duration={`65 ${t.common.minutes}`} exercises={7} variant="completed" />
+          <WorkoutCard title="Push Day" subtitle={`${t.dashboard.chest}, ${t.dashboard.shoulders}, ${t.dashboard.triceps}`} icon={Dumbbell} xp={180} duration={`60 ${t.common.minutes}`} exercises={6} variant="active" onClick={() => navigate("/workout")} />
+          <WorkoutCard title="Pull Day" subtitle={`${t.dashboard.back}, ${t.dashboard.biceps}`} icon={Dumbbell} xp={170} duration={`55 ${t.common.minutes}`} exercises={6} />
+          <WorkoutCard title="Legs Day" subtitle={`${t.dashboard.quads}, ${t.dashboard.hamstrings}, ${t.dashboard.glutes}`} icon={Flame} xp={200} duration={`65 ${t.common.minutes}`} exercises={7} />
         </div>
       </div>
 
       {/* Weekly Challenge */}
       <div className="px-6 mt-8">
-        <h2 className="text-lg font-display font-bold text-foreground mb-3">Reto Semanal</h2>
+        <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.dashboard.weeklyChallenge}</h2>
         <div className="p-4 rounded-2xl bg-gradient-to-r from-achievement/10 to-transparent border border-achievement/20">
           <div className="flex items-center gap-3 mb-3">
             <span className="text-2xl">🔥</span>
             <div>
-              <h3 className="font-semibold text-foreground">Semana de Fuego</h3>
-              <p className="text-xs text-muted-foreground">Completa 5 entrenamientos esta semana</p>
+              <h3 className="font-semibold text-foreground">{t.dashboard.fireWeek}</h3>
+              <p className="text-xs text-muted-foreground">{t.dashboard.fireWeekDesc}</p>
             </div>
           </div>
-          <XPBar current={3} max={5} variant="achievement" size="sm" label="Progreso" />
-          <p className="text-xs text-achievement font-semibold mt-2">+500 XP de bonificación</p>
+          <XPBar current={3} max={5} variant="achievement" size="sm" label={t.dashboard.progress} />
+          <p className="text-xs text-achievement font-semibold mt-2">{t.dashboard.xpBonus}</p>
         </div>
       </div>
 
