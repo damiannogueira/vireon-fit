@@ -6,19 +6,58 @@ import { XPBar } from "@/components/XPBar";
 import { useI18n } from "@/i18n";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+const XP_PER_LEVEL = 500;
 
 const Profile = () => {
   const { t, locale, setLocale } = useI18n();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
 
-  const configItems = [
-    { label: t.profile.goal, value: t.profile.hypertrophy },
-    { label: t.profile.level, value: t.profile.intermediate },
-    { label: t.profile.daysPerWeek, value: t.profile.fiveDays },
-    { label: t.profile.sessionDuration, value: t.profile.sixtyMin },
-    { label: t.profile.equipment, value: t.profile.complete },
-  ];
+  const { data: profile } = useQuery({
+    queryKey: ["profile-page", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: workoutStats } = useQuery({
+    queryKey: ["profile-workout-stats", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("workout_logs")
+        .select("duration_minutes, xp_earned, completed_at")
+        .eq("user_id", user!.id);
+      const totalWorkouts = data?.filter(w => w.completed_at).length || 0;
+      const totalXpEarned = data?.reduce((sum, w) => sum + (w.xp_earned || 0), 0) || 0;
+      return { totalWorkouts, totalXpEarned };
+    },
+    enabled: !!user,
+  });
+
+  const displayName = profile?.display_name || user?.email?.split("@")[0] || "—";
+  const level = profile?.level || 1;
+  const xp = profile?.xp || 0;
+  const xpInLevel = xp % XP_PER_LEVEL;
+  const fitnessLevel = profile?.fitness_level || "beginner";
+
+  const fitnessLabel = (fl: string) => {
+    const map: Record<string, string> = {
+      beginner: locale === "es" ? "Principiante" : "Beginner",
+      intermediate: locale === "es" ? "Intermedio" : "Intermediate",
+      advanced: locale === "es" ? "Avanzado" : "Advanced",
+      elite: "Elite",
+    };
+    return map[fl] || fl;
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -38,19 +77,19 @@ const Profile = () => {
           className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/50 mb-6"
         >
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center border border-primary/20">
-            <span className="text-2xl">🦁</span>
+            <span className="text-2xl">💪</span>
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-bold text-foreground">Guerrero</h2>
-            <p className="text-sm text-muted-foreground">guerrero@email.com</p>
+            <h2 className="text-lg font-bold text-foreground">{displayName}</h2>
+            <p className="text-sm text-muted-foreground">{user?.email || "—"}</p>
           </div>
-          <LevelBadge level={7} className="w-12 h-12" />
+          <LevelBadge level={level} className="w-12 h-12" />
         </motion.div>
 
         {/* XP */}
         <div className="p-4 rounded-2xl bg-card border border-border/50 mb-6">
-          <XPBar current={2450} max={3000} label={t.profile.levelTo.replace("{from}", "7").replace("{to}", "8")} variant="xp" />
-          <p className="text-xs text-muted-foreground mt-2">{t.profile.totalXP}: 12,450</p>
+          <XPBar current={xpInLevel} max={XP_PER_LEVEL} label={t.profile.levelTo.replace("{from}", String(level)).replace("{to}", String(level + 1))} variant="xp" />
+          <p className="text-xs text-muted-foreground mt-2">{t.profile.totalXP}: {xp.toLocaleString()}</p>
         </div>
 
         {/* Plan */}
@@ -96,18 +135,19 @@ const Profile = () => {
         {/* Config */}
         <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.profile.settings}</h2>
         <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-          {configItems.map((item, i) => (
-            <button key={i} className="w-full flex items-center justify-between px-4 py-3.5 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
+          {[
+            { label: t.profile.level, value: fitnessLabel(fitnessLevel) },
+            { label: locale === "es" ? "Racha" : "Streak", value: `${profile?.streak_days || 0} ${t.common.days}` },
+            { label: "Workouts", value: String(workoutStats?.totalWorkouts || 0) },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center justify-between px-4 py-3.5 border-b border-border/30 last:border-0">
               <span className="text-sm text-foreground">{item.label}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{item.value}</span>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-            </button>
+              <span className="text-sm text-muted-foreground">{item.value}</span>
+            </div>
           ))}
         </div>
 
-        {/* My Training Info */}
+        {/* Training Info */}
         <div className="mt-6 p-4 rounded-2xl bg-card border border-border/50">
           <div className="flex items-center gap-2 mb-3">
             <Dumbbell className="w-5 h-5 text-primary" />
@@ -115,16 +155,12 @@ const Profile = () => {
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">{t.profile.split}</span>
-              <span className="text-sm font-medium text-foreground">Push/Pull/Legs</span>
+              <span className="text-sm text-muted-foreground">{t.profile.totalXP}</span>
+              <span className="text-sm font-medium text-xp">{xp.toLocaleString()} XP</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">{t.profile.currentWeek}</span>
-              <span className="text-sm font-medium text-foreground">{t.profile.week} 4</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">{t.profile.progression}</span>
-              <span className="text-sm font-medium text-xp">+2.5 kg/{locale === "es" ? "semana" : "week"}</span>
+              <span className="text-sm text-muted-foreground">{locale === "es" ? "Racha actual" : "Current streak"}</span>
+              <span className="text-sm font-medium text-achievement">{profile?.streak_days || 0} {t.common.days}</span>
             </div>
           </div>
         </div>
@@ -135,7 +171,7 @@ const Profile = () => {
           className="mt-6 w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive font-semibold hover:bg-destructive/20 transition-colors"
         >
           <LogOut className="w-5 h-5" />
-          {locale === "es" ? "Cerrar sesión" : "Log out"}
+          {t.profile.logout}
         </button>
       </div>
 

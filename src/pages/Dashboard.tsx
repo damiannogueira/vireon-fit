@@ -7,10 +7,63 @@ import { StatCard } from "@/components/StatCard";
 import { WorkoutCard } from "@/components/WorkoutCard";
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+const XP_PER_LEVEL = 500;
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { user } = useAuth();
+
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["dashboard-profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name, level, xp, streak_days")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: workoutStats } = useQuery({
+    queryKey: ["dashboard-workout-stats", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("duration_minutes, xp_earned, completed_at")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+
+      const totalWorkouts = data?.filter(w => w.completed_at).length || 0;
+      const totalMinutes = data?.reduce((sum, w) => sum + (w.duration_minutes || 0), 0) || 0;
+      const totalHours = Math.round(totalMinutes / 60);
+
+      return { totalWorkouts, totalHours };
+    },
+    enabled: !!user,
+  });
+
+  const displayName = profile?.display_name || user?.email?.split("@")[0] || "—";
+  const level = profile?.level || 1;
+  const xp = profile?.xp || 0;
+  const streak = profile?.streak_days || 0;
+  const xpInLevel = xp % XP_PER_LEVEL;
+  const xpToNext = XP_PER_LEVEL;
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -19,9 +72,9 @@ const Dashboard = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
-            <h1 className="text-2xl font-display font-bold text-foreground">Guerrero 💪</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">{displayName} 💪</h1>
           </div>
-          <LevelBadge level={7} />
+          <LevelBadge level={level} />
         </div>
 
         {/* XP Progress */}
@@ -30,16 +83,18 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           className="p-4 rounded-2xl bg-card border border-border/50 mb-6"
         >
-          <XPBar current={2450} max={3000} label={t.dashboard.experience} variant="xp" size="md" />
-          <p className="text-xs text-muted-foreground mt-2">550 XP {t.dashboard.xpToLevel.replace("{xp}", "").replace("{level}", "8").replace("XP to Level", "→ " + t.profile.level + " 8").replace("XP para Nivel", "→ " + t.profile.level + " 8")}</p>
+          <XPBar current={xpInLevel} max={xpToNext} label={t.dashboard.experience} variant="xp" size="md" />
+          <p className="text-xs text-muted-foreground mt-2">
+            {xpToNext - xpInLevel} XP → {t.profile.level} {level + 1}
+          </p>
         </motion.div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-2 mb-6">
-          <StatCard label={t.dashboard.streak} value="12" icon="streak" />
-          <StatCard label={t.dashboard.workouts} value="48" icon="workouts" />
-          <StatCard label={t.dashboard.kg} value="3.2k" icon="weight" />
-          <StatCard label={t.dashboard.hours} value="36" icon="time" />
+          <StatCard label={t.dashboard.streak} value={String(streak)} icon="streak" />
+          <StatCard label={t.dashboard.workouts} value={String(workoutStats?.totalWorkouts || 0)} icon="workouts" />
+          <StatCard label="XP" value={String(xp)} icon="weight" />
+          <StatCard label={t.dashboard.hours} value={String(workoutStats?.totalHours || 0)} icon="time" />
         </div>
       </div>
 
@@ -47,7 +102,6 @@ const Dashboard = () => {
       <div className="px-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-display font-bold text-foreground">{t.dashboard.today}</h2>
-          <span className="text-xs text-primary font-semibold">{t.dashboard.dayOf.replace("{current}", "3").replace("{total}", "5")}</span>
         </div>
 
         <motion.div
@@ -101,7 +155,7 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">{t.dashboard.fireWeekDesc}</p>
             </div>
           </div>
-          <XPBar current={3} max={5} variant="achievement" size="sm" label={t.dashboard.progress} />
+          <XPBar current={workoutStats?.totalWorkouts ? Math.min(workoutStats.totalWorkouts, 5) : 0} max={5} variant="achievement" size="sm" label={t.dashboard.progress} />
           <p className="text-xs text-achievement font-semibold mt-2">{t.dashboard.xpBonus}</p>
         </div>
       </div>

@@ -4,20 +4,93 @@ import { BottomNav } from "@/components/BottomNav";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { XPBar } from "@/components/XPBar";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Achievements = () => {
   const { t } = useI18n();
+  const { user } = useAuth();
 
-  const achievements = [
-    { icon: Flame, title: t.achievements.firstStreak, unlocked: true },
-    { icon: Target, title: t.achievements.tenWorkouts, unlocked: true },
-    { icon: Dumbbell, title: t.achievements.benchHundred, unlocked: true },
-    { icon: Star, title: t.achievements.levelFive, unlocked: true },
-    { icon: Clock, title: t.achievements.earlyBird, unlocked: true },
-    { icon: TrendingUp, title: t.achievements.weeklyPR, unlocked: false },
-    { icon: Trophy, title: t.achievements.streak30, unlocked: false },
-    { icon: Zap, title: t.achievements.levelTen, unlocked: false },
+  const { data: userAchievements } = useQuery({
+    queryKey: ["user-achievements", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_achievements")
+        .select("*, achievements(*)")
+        .eq("user_id", user!.id);
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: allAchievements } = useQuery({
+    queryKey: ["all-achievements"],
+    queryFn: async () => {
+      const { data } = await supabase.from("achievements").select("*");
+      return data || [];
+    },
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ["achievements-profile", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("xp, streak_days")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: workoutCount } = useQuery({
+    queryKey: ["achievements-workout-count", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("workout_logs")
+        .select("id")
+        .eq("user_id", user!.id)
+        .not("completed_at", "is", null);
+      return data?.length || 0;
+    },
+    enabled: !!user,
+  });
+
+  const unlockedIds = new Set(userAchievements?.map(ua => ua.achievement_id) || []);
+
+  const iconMap: Record<string, any> = {
+    "🔥": Flame,
+    "🎯": Target,
+    "💪": Dumbbell,
+    "⭐": Star,
+    "⏰": Clock,
+    "📈": TrendingUp,
+    "🏆": Trophy,
+    "⚡": Zap,
+  };
+
+  const achievementsList = allAchievements?.map(a => ({
+    id: a.id,
+    icon: iconMap[a.icon || "🏆"] || Trophy,
+    title: a.name,
+    unlocked: unlockedIds.has(a.id),
+  })) || [];
+
+  // If no achievements in DB, show defaults
+  const displayAchievements = achievementsList.length > 0 ? achievementsList : [
+    { id: "1", icon: Flame, title: t.achievements.firstStreak, unlocked: (profile?.streak_days || 0) >= 3 },
+    { id: "2", icon: Target, title: t.achievements.tenWorkouts, unlocked: (workoutCount || 0) >= 10 },
+    { id: "3", icon: Dumbbell, title: t.achievements.benchHundred, unlocked: false },
+    { id: "4", icon: Star, title: t.achievements.levelFive, unlocked: false },
+    { id: "5", icon: Clock, title: t.achievements.earlyBird, unlocked: false },
+    { id: "6", icon: TrendingUp, title: t.achievements.weeklyPR, unlocked: false },
+    { id: "7", icon: Trophy, title: t.achievements.streak30, unlocked: (profile?.streak_days || 0) >= 30 },
+    { id: "8", icon: Zap, title: t.achievements.levelTen, unlocked: false },
   ];
+
+  const unlockedCount = displayAchievements.filter(a => a.unlocked).length;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -38,15 +111,15 @@ const Achievements = () => {
               <p className="text-xs text-muted-foreground">{t.achievements.challengeDesc}</p>
             </div>
           </div>
-          <XPBar current={3} max={5} variant="achievement" size="md" />
+          <XPBar current={Math.min(workoutCount || 0, 5)} max={5} variant="achievement" size="md" />
         </motion.div>
 
         {/* Badges Grid */}
         <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.achievements.badges}</h2>
         <div className="grid grid-cols-4 gap-1">
-          {achievements.map((a, i) => (
+          {displayAchievements.map((a, i) => (
             <motion.div
-              key={i}
+              key={a.id}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
@@ -62,15 +135,15 @@ const Achievements = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">{t.achievements.badgesUnlocked}</span>
-              <span className="text-sm font-bold text-foreground">5 / 8</span>
+              <span className="text-sm font-bold text-foreground">{unlockedCount} / {displayAchievements.length}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">{t.achievements.totalXP}</span>
-              <span className="text-sm font-bold text-xp">12,450 XP</span>
+              <span className="text-sm font-bold text-xp">{(profile?.xp || 0).toLocaleString()} XP</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">{t.achievements.longestStreak}</span>
-              <span className="text-sm font-bold text-achievement">18 {t.common.days}</span>
+              <span className="text-sm font-bold text-achievement">{profile?.streak_days || 0} {t.common.days}</span>
             </div>
           </div>
         </div>
