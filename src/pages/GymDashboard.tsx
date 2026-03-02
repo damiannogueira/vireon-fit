@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X } from "lucide-react";
+import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const GymDashboard = () => {
   const { user } = useAuth();
   const { locale } = useI18n();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"overview" | "members" | "routines">("overview");
   const [editingGym, setEditingGym] = useState(false);
   const [gymForm, setGymForm] = useState({ name: "", address: "", primary_color: "", secondary_color: "" });
@@ -24,6 +27,7 @@ const GymDashboard = () => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [routineDialog, setRoutineDialog] = useState(false);
   const [routineForm, setRoutineForm] = useState({ name: "", description: "", estimated_duration: 60 });
+  const [selectedExercises, setSelectedExercises] = useState<{ id: string; name: string; sets: number; reps: number; rest: number }[]>([]);
 
   // Get user's gym - check user_roles first, then profile
   const { data: userGymId } = useQuery({
@@ -88,9 +92,25 @@ const GymDashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workouts")
-        .select("*")
+        .select("*, workout_exercises(id, exercise_id, sets, reps, rest_seconds, exercises(name))")
         .eq("gym_id", userGymId!)
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userGymId,
+  });
+
+  // Fetch all available exercises
+  const { data: availableExercises, isLoading: isLoadingExercises } = useQuery({
+    queryKey: ["available-exercises", userGymId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exercises")
+        .select("id, name, muscle_group")
+        .or(`is_global.eq.true,gym_id.eq.${userGymId}`)
+        .order("muscle_group")
+        .order("name");
       if (error) throw error;
       return data || [];
     },
@@ -131,23 +151,48 @@ const GymDashboard = () => {
   };
 
   const handleCreateRoutine = async () => {
-    if (!userGymId || !routineForm.name) return;
+    if (!userGymId || !routineForm.name || selectedExercises.length === 0) {
+      toast.error(locale === "es" ? "Agregá al menos un ejercicio" : "Add at least one exercise");
+      return;
+    }
     try {
-      const { error } = await supabase.from("workouts").insert({
+      const { data: workout, error } = await supabase.from("workouts").insert({
         name: routineForm.name,
         description: routineForm.description || null,
         estimated_duration: routineForm.estimated_duration,
         gym_id: userGymId,
         created_by: user!.id,
-      });
+      }).select("id").single();
       if (error) throw error;
-      toast.success(locale === "es" ? "Rutina creada" : "Routine created");
+
+      // Insert workout exercises
+      const exerciseInserts = selectedExercises.map((ex, i) => ({
+        workout_id: workout.id,
+        exercise_id: ex.id,
+        sets: ex.sets,
+        reps: ex.reps,
+        rest_seconds: ex.rest,
+        sort_order: i,
+      }));
+      const { error: exError } = await supabase.from("workout_exercises").insert(exerciseInserts);
+      if (exError) throw exError;
+
+      toast.success(locale === "es" ? `Rutina creada con ${selectedExercises.length} ejercicios` : `Routine created with ${selectedExercises.length} exercises`);
       queryClient.invalidateQueries({ queryKey: ["gym-routines"] });
       setRoutineDialog(false);
       setRoutineForm({ name: "", description: "", estimated_duration: 60 });
+      setSelectedExercises([]);
     } catch (e: any) {
       toast.error(e.message);
     }
+  };
+
+  const toggleExercise = (ex: { id: string; name: string }) => {
+    setSelectedExercises(prev => {
+      const exists = prev.find(e => e.id === ex.id);
+      if (exists) return prev.filter(e => e.id !== ex.id);
+      return [...prev, { id: ex.id, name: ex.name, sets: 3, reps: 10, rest: 60 }];
+    });
   };
 
   if (gymLoading) {
@@ -327,7 +372,7 @@ const GymDashboard = () => {
               <Plus className="w-4 h-4" />
               <span className="text-sm font-medium">{locale === "es" ? "Crear plantilla" : "Create template"}</span>
             </button>
-            {routines && routines.length > 0 ? routines.map((r) => (
+            {routines && routines.length > 0 ? routines.map((r: any) => (
               <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50">
                 <div className="w-10 h-10 rounded-xl bg-energy/10 flex items-center justify-center">
                   <ClipboardList className="w-5 h-5 text-energy" />
@@ -335,10 +380,15 @@ const GymDashboard = () => {
                 <div className="flex-1">
                   <span className="text-sm font-medium text-foreground">{r.name}</span>
                   <p className="text-xs text-muted-foreground">
-                    {r.estimated_duration || 0} min · {r.difficulty || "beginner"}
+                    {r.estimated_duration || 0} min · {r.workout_exercises?.length || 0} {locale === "es" ? "ejercicios" : "exercises"}
                   </p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                <button
+                  onClick={() => navigate(`/workout/${r.id}`)}
+                  className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Play className="w-4 h-4 ml-0.5" />
+                </button>
               </div>
             )) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
@@ -408,16 +458,16 @@ const GymDashboard = () => {
       </Dialog>
 
       {/* Create Routine Dialog */}
-      <Dialog open={routineDialog} onOpenChange={setRoutineDialog}>
-        <DialogContent>
+      <Dialog open={routineDialog} onOpenChange={(open) => { setRoutineDialog(open); if (!open) setSelectedExercises([]); }}>
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] sm:w-full flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>{locale === "es" ? "Crear Rutina" : "Create Routine"}</DialogTitle>
             <DialogDescription>{locale === "es" ? "Nueva plantilla de entrenamiento" : "New workout template"}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1">
             <div>
               <Label>{locale === "es" ? "Nombre" : "Name"}</Label>
-              <Input value={routineForm.name} onChange={e => setRoutineForm(f => ({ ...f, name: e.target.value }))} placeholder={locale === "es" ? "Ej: Push/Pull/Legs" : "E.g.: Push/Pull/Legs"} />
+              <Input value={routineForm.name} onChange={e => setRoutineForm(f => ({ ...f, name: e.target.value }))} placeholder={locale === "es" ? "Ej: Push Day" : "E.g.: Push Day"} />
             </div>
             <div>
               <Label>{locale === "es" ? "Descripción" : "Description"}</Label>
@@ -427,10 +477,80 @@ const GymDashboard = () => {
               <Label>{locale === "es" ? "Duración estimada (min)" : "Estimated duration (min)"}</Label>
               <Input type="number" value={routineForm.estimated_duration} onChange={e => setRoutineForm(f => ({ ...f, estimated_duration: Number(e.target.value) }))} />
             </div>
+
+            {/* Exercise Selection */}
+            <div>
+              <Label className="mb-2 block">{locale === "es" ? "Ejercicios" : "Exercises"} ({selectedExercises.length})</Label>
+              
+              {/* Selected exercises */}
+              {selectedExercises.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {selectedExercises.map((ex, i) => (
+                    <div key={ex.id} className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                      <span className="text-xs font-bold text-primary w-5">{i + 1}</span>
+                      <span className="flex-1 text-sm text-foreground truncate">{ex.name}</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number" min="1" max="10" value={ex.sets}
+                          onChange={e => setSelectedExercises(prev => prev.map(p => p.id === ex.id ? { ...p, sets: Number(e.target.value) } : p))}
+                          className="w-12 h-7 text-xs text-center p-0"
+                        />
+                        <span className="text-[10px] text-muted-foreground">×</span>
+                        <Input
+                          type="number" min="1" max="100" value={ex.reps}
+                          onChange={e => setSelectedExercises(prev => prev.map(p => p.id === ex.id ? { ...p, reps: Number(e.target.value) } : p))}
+                          className="w-12 h-7 text-xs text-center p-0"
+                        />
+                      </div>
+                      <button onClick={() => setSelectedExercises(prev => prev.filter(p => p.id !== ex.id))} className="text-muted-foreground hover:text-destructive">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Available exercises */}
+              <ScrollArea className="h-72 max-h-[40vh] rounded-lg border border-border/50">
+                <div className="p-2 space-y-1">
+                  {isLoadingExercises && (
+                    <p className="text-xs text-muted-foreground px-2 py-2">
+                      {locale === "es" ? "Cargando ejercicios..." : "Loading exercises..."}
+                    </p>
+                  )}
+                  {!isLoadingExercises && (!availableExercises || availableExercises.length === 0) && (
+                    <p className="text-xs text-muted-foreground px-2 py-2">
+                      {locale === "es" ? "No hay ejercicios disponibles" : "No exercises available"}
+                    </p>
+                  )}
+                  {availableExercises?.map(ex => {
+                    const isSelected = selectedExercises.some(s => s.id === ex.id);
+                    return (
+                      <button
+                        key={ex.id}
+                        onClick={() => toggleExercise(ex)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-all text-sm",
+                          isSelected ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
+                        )}
+                      >
+                        <div className={cn("w-5 h-5 rounded flex items-center justify-center border", isSelected ? "bg-primary border-primary" : "border-border")}>
+                          {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <span className="flex-1 truncate">{ex.name}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase">{ex.muscle_group}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRoutineDialog(false)}>{locale === "es" ? "Cancelar" : "Cancel"}</Button>
-            <Button onClick={handleCreateRoutine} disabled={!routineForm.name}>{locale === "es" ? "Crear" : "Create"}</Button>
+            <Button variant="outline" onClick={() => { setRoutineDialog(false); setSelectedExercises([]); }}>{locale === "es" ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleCreateRoutine} disabled={!routineForm.name || selectedExercises.length === 0}>
+              {locale === "es" ? `Crear (${selectedExercises.length})` : `Create (${selectedExercises.length})`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
