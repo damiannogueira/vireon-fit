@@ -132,6 +132,13 @@ export type Database = {
             referencedRelation: "gyms"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "gym_members_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       gyms: {
@@ -421,6 +428,51 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          gym_id: string
+          id: string
+          notes: string | null
+          user_id: string
+          workout_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          gym_id: string
+          id?: string
+          notes?: string | null
+          user_id: string
+          workout_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          gym_id?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_assignments_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_assignments_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
             referencedColumns: ["id"]
           },
         ]

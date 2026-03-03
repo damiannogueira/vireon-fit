@@ -95,7 +95,7 @@ const Workout = () => {
     { id: "6", exerciseId: "", name: (t.workout as any).tricepsPushdown || "Triceps Pushdown", sets: [{ reps: 15, weight: 25, completed: false }, { reps: 12, weight: 27, completed: false }, { reps: 12, weight: 27, completed: false }], restSeconds: 60 },
   ], [t]);
 
-  const activeExercises = (workoutId && initialized && exercises.length > 0) ? exercises : (!workoutId ? mockExercises : exercises);
+  const activeExercises = initialized ? exercises : (!workoutId ? mockExercises : []);
 
   // Complete workout mutation
   const completeWorkoutMutation = useMutation({
@@ -252,7 +252,7 @@ const Workout = () => {
                   : "bg-secondary text-muted-foreground"
               )}
             >
-              {i + 1}. {ex.name.split(" ")[0]}
+              {i + 1}. {ex.name}
             </button>
           );
         })}

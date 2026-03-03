@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Settings, ChevronRight, Crown, Dumbbell, Globe, LogOut } from "lucide-react";
+import { Crown, Dumbbell, Globe, LogOut } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { LevelBadge } from "@/components/LevelBadge";
 import { XPBar } from "@/components/XPBar";
@@ -65,9 +65,6 @@ const Profile = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-display font-bold text-foreground">{t.profile.title}</h1>
-          <button className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-            <Settings className="w-5 h-5" />
-          </button>
         </div>
 
         {/* User Card */}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check } from "lucide-react";
+import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,14 +13,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ExerciseManager } from "@/components/gym/ExerciseManager";
+import { ExerciseSelector } from "@/components/gym/ExerciseSelector";
 
 const GymDashboard = () => {
   const { user } = useAuth();
   const { locale } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "routines">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "routines" | "exercises">("overview");
   const [editingGym, setEditingGym] = useState(false);
   const [gymForm, setGymForm] = useState({ name: "", address: "", primary_color: "", secondary_color: "" });
   const [inviteDialog, setInviteDialog] = useState(false);
@@ -28,6 +29,8 @@ const GymDashboard = () => {
   const [routineDialog, setRoutineDialog] = useState(false);
   const [routineForm, setRoutineForm] = useState({ name: "", description: "", estimated_duration: 60 });
   const [selectedExercises, setSelectedExercises] = useState<{ id: string; name: string; sets: number; reps: number; rest: number }[]>([]);
+  const [assignDialog, setAssignDialog] = useState<{ workoutId: string; workoutName: string } | null>(null);
+  const [assignSelectedMembers, setAssignSelectedMembers] = useState<string[]>([]);
 
   // Get user's gym - check user_roles first, then profile
   const { data: userGymId } = useQuery({
@@ -78,7 +81,7 @@ const GymDashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("gym_members")
-        .select("*, profiles:user_id(display_name, level, xp)")
+        .select("*, profiles!gym_members_user_id_profiles_fkey(display_name, level, xp)")
         .eq("gym_id", userGymId!)
         .eq("is_active", true);
       if (error) throw error;
@@ -187,6 +190,25 @@ const GymDashboard = () => {
     }
   };
 
+  const handleAssignRoutine = async () => {
+    if (!assignDialog || assignSelectedMembers.length === 0 || !userGymId) return;
+    try {
+      const inserts = assignSelectedMembers.map(userId => ({
+        workout_id: assignDialog.workoutId,
+        user_id: userId,
+        gym_id: userGymId,
+        assigned_by: user!.id,
+      }));
+      const { error } = await supabase.from("workout_assignments").upsert(inserts, { onConflict: "workout_id,user_id" });
+      if (error) throw error;
+      toast.success(locale === "es" ? `Rutina asignada a ${assignSelectedMembers.length} alumno(s)` : `Routine assigned to ${assignSelectedMembers.length} member(s)`);
+      setAssignDialog(null);
+      setAssignSelectedMembers([]);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const toggleExercise = (ex: { id: string; name: string }) => {
     setSelectedExercises(prev => {
       const exists = prev.find(e => e.id === ex.id);
@@ -258,7 +280,8 @@ const GymDashboard = () => {
           {[
             { id: "overview" as const, label: locale === "es" ? "General" : "Overview" },
             { id: "members" as const, label: locale === "es" ? "Alumnos" : "Members" },
-            { id: "routines" as const, label: locale === "es" ? "Rutinas" : "Routines" },
+           { id: "routines" as const, label: locale === "es" ? "Rutinas" : "Routines" },
+           { id: "exercises" as const, label: locale === "es" ? "Ejercicios" : "Exercises" },
           ].map(tab => (
             <button
               key={tab.id}
@@ -384,6 +407,13 @@ const GymDashboard = () => {
                   </p>
                 </div>
                 <button
+                  onClick={() => { setAssignDialog({ workoutId: r.id, workoutName: r.name }); setAssignSelectedMembers([]); }}
+                  className="w-9 h-9 rounded-lg bg-achievement/10 flex items-center justify-center text-achievement hover:bg-achievement/20 transition-colors"
+                  title={locale === "es" ? "Asignar a alumnos" : "Assign to members"}
+                >
+                  <UserCheck className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => navigate(`/workout/${r.id}`)}
                   className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
                 >
@@ -395,6 +425,12 @@ const GymDashboard = () => {
                 {locale === "es" ? "No hay rutinas aún" : "No routines yet"}
               </div>
             )}
+          </motion.div>
+        )}
+
+        {activeTab === "exercises" && userGymId && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <ExerciseManager gymId={userGymId} />
           </motion.div>
         )}
       </div>
@@ -510,46 +546,67 @@ const GymDashboard = () => {
                 </div>
               )}
 
-              {/* Available exercises */}
-              <ScrollArea className="h-72 max-h-[40vh] rounded-lg border border-border/50">
-                <div className="p-2 space-y-1">
-                  {isLoadingExercises && (
-                    <p className="text-xs text-muted-foreground px-2 py-2">
-                      {locale === "es" ? "Cargando ejercicios..." : "Loading exercises..."}
-                    </p>
-                  )}
-                  {!isLoadingExercises && (!availableExercises || availableExercises.length === 0) && (
-                    <p className="text-xs text-muted-foreground px-2 py-2">
-                      {locale === "es" ? "No hay ejercicios disponibles" : "No exercises available"}
-                    </p>
-                  )}
-                  {availableExercises?.map(ex => {
-                    const isSelected = selectedExercises.some(s => s.id === ex.id);
-                    return (
-                      <button
-                        key={ex.id}
-                        onClick={() => toggleExercise(ex)}
-                        className={cn(
-                          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-all text-sm",
-                          isSelected ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
-                        )}
-                      >
-                        <div className={cn("w-5 h-5 rounded flex items-center justify-center border", isSelected ? "bg-primary border-primary" : "border-border")}>
-                          {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                        </div>
-                        <span className="flex-1 truncate">{ex.name}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase">{ex.muscle_group}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
+              {/* Exercise selector with search and filters */}
+              <ExerciseSelector
+                exercises={availableExercises}
+                isLoading={isLoadingExercises}
+                selectedIds={selectedExercises.map(e => e.id)}
+                onToggle={toggleExercise}
+                locale={locale}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setRoutineDialog(false); setSelectedExercises([]); }}>{locale === "es" ? "Cancelar" : "Cancel"}</Button>
             <Button onClick={handleCreateRoutine} disabled={!routineForm.name || selectedExercises.length === 0}>
               {locale === "es" ? `Crear (${selectedExercises.length})` : `Create (${selectedExercises.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Routine Dialog */}
+      <Dialog open={!!assignDialog} onOpenChange={(open) => { if (!open) { setAssignDialog(null); setAssignSelectedMembers([]); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{locale === "es" ? "Asignar Rutina" : "Assign Routine"}</DialogTitle>
+            <DialogDescription>
+              {assignDialog?.workoutName} — {locale === "es" ? "Seleccioná los alumnos" : "Select members"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {members && members.length > 0 ? members.map((m: any) => {
+              const isSelected = assignSelectedMembers.includes(m.user_id);
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setAssignSelectedMembers(prev => isSelected ? prev.filter(id => id !== m.user_id) : [...prev, m.user_id])}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
+                    isSelected ? "bg-primary/10 border-primary/30" : "bg-card border-border/50 hover:border-primary/20"
+                  )}
+                >
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold",
+                    isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                  )}>
+                    {isSelected ? <Check className="w-4 h-4" /> : (m.profiles?.display_name || "?").slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{m.profiles?.display_name || "—"}</span>
+                </button>
+              );
+            }) : (
+              <p className="text-center text-muted-foreground text-sm py-4">
+                {locale === "es" ? "No hay alumnos en el gimnasio" : "No members in the gym"}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAssignDialog(null); setAssignSelectedMembers([]); }}>
+              {locale === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={handleAssignRoutine} disabled={assignSelectedMembers.length === 0}>
+              {locale === "es" ? `Asignar (${assignSelectedMembers.length})` : `Assign (${assignSelectedMembers.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
