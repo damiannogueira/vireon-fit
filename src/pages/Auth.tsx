@@ -1,22 +1,23 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dumbbell, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeAuthError } from "@/lib/auth-errors";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
 import { useI18n } from "@/i18n";
 
 type AuthMode = "login" | "signup" | "forgot";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteGymId = searchParams.get("invite");
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { t } = useI18n();
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>(inviteGymId ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -25,9 +26,34 @@ const Auth = () => {
 
   useEffect(() => {
     if (!authLoading && user) {
-      navigate("/dashboard", { replace: true });
+      // If there's an invite param and user just logged in/signed up, join the gym
+      if (inviteGymId) {
+        joinGym(user.id, inviteGymId).then(() => {
+          navigate("/dashboard", { replace: true });
+        });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, inviteGymId]);
+
+  const joinGym = async (userId: string, gymId: string) => {
+    try {
+      // Check if already a member
+      const { data: existing } = await supabase
+        .from("gym_members")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("gym_id", gymId)
+        .maybeSingle();
+      if (!existing) {
+        await supabase.from("gym_members").insert({ user_id: userId, gym_id: gymId });
+        await supabase.from("profiles").update({ gym_id: gymId }).eq("user_id", userId);
+      }
+    } catch (e) {
+      console.error("Failed to join gym:", e);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +62,8 @@ const Auth = () => {
     setLoading(false);
     if (error) {
       toast({ title: t.auth.loginError, description: sanitizeAuthError(error), variant: "destructive" });
-    } else {
-      navigate("/dashboard");
     }
+    // navigation handled by useEffect
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -48,7 +73,9 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: inviteGymId
+          ? `${window.location.origin}/auth?invite=${inviteGymId}`
+          : window.location.origin,
         data: { display_name: displayName },
       },
     });
@@ -82,7 +109,9 @@ const Auth = () => {
 
   const subtitles: Record<AuthMode, string> = {
     login: t.auth.loginSubtitle,
-    signup: t.auth.signupSubtitle,
+    signup: inviteGymId
+      ? (t as any).auth?.inviteSubtitle || "Te invitaron a un gimnasio. Registrate para unirte."
+      : t.auth.signupSubtitle,
     forgot: t.auth.forgotSubtitle,
   };
 
@@ -100,6 +129,15 @@ const Auth = () => {
           <span className="font-display font-bold text-foreground">VIREON<span className="text-primary"> FIT</span></span>
         </div>
       </div>
+
+      {/* Invite banner */}
+      {inviteGymId && (
+        <div className="mb-4 p-3 rounded-xl bg-primary/10 border border-primary/30 text-sm text-foreground">
+          🏋️ {mode === "signup"
+            ? "Registrate para unirte al gimnasio"
+            : "Iniciá sesión para unirte al gimnasio"}
+        </div>
+      )}
 
       {/* Title */}
       <AnimatePresence mode="wait">

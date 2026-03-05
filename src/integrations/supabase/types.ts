@@ -141,6 +141,56 @@ export type Database = {
           },
         ]
       }
+      gym_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          gym_id: string
+          id: string
+          is_paid: boolean
+          marked_by: string | null
+          notes: string | null
+          paid_at: string | null
+          period_month: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          gym_id: string
+          id?: string
+          is_paid?: boolean
+          marked_by?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          period_month: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          gym_id?: string
+          id?: string
+          is_paid?: boolean
+          marked_by?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          period_month?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_payments_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gyms: {
         Row: {
           address: string | null

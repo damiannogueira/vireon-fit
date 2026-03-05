@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck } from "lucide-react";
+import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,28 +15,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { ExerciseManager } from "@/components/gym/ExerciseManager";
 import { ExerciseSelector } from "@/components/gym/ExerciseSelector";
+import { Switch } from "@/components/ui/switch";
 
 const GymDashboard = () => {
   const { user } = useAuth();
   const { locale } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "routines" | "exercises">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "routines" | "exercises" | "payments">("overview");
   const [editingGym, setEditingGym] = useState(false);
   const [gymForm, setGymForm] = useState({ name: "", address: "", primary_color: "", secondary_color: "" });
   const [inviteDialog, setInviteDialog] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [addManualDialog, setAddManualDialog] = useState(false);
+  const [manualForm, setManualForm] = useState({ displayName: "", email: "" });
   const [routineDialog, setRoutineDialog] = useState(false);
   const [routineForm, setRoutineForm] = useState({ name: "", description: "", estimated_duration: 60 });
   const [selectedExercises, setSelectedExercises] = useState<{ id: string; name: string; sets: number; reps: number; rest: number }[]>([]);
   const [assignDialog, setAssignDialog] = useState<{ workoutId: string; workoutName: string } | null>(null);
   const [assignSelectedMembers, setAssignSelectedMembers] = useState<string[]>([]);
 
-  // Get user's gym - check user_roles first, then profile
+  // Get user's gym
   const { data: userGymId } = useQuery({
     queryKey: ["user-gym-id", user?.id],
     queryFn: async () => {
-      // Check if user is gym_admin with a gym
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("gym_id")
@@ -45,22 +46,17 @@ const GymDashboard = () => {
         .not("gym_id", "is", null)
         .maybeSingle();
       if (roleData?.gym_id) return roleData.gym_id;
-
-      // Check profile gym_id
       const { data: profileData } = await supabase
         .from("profiles")
         .select("gym_id")
         .eq("user_id", user!.id)
         .maybeSingle();
       if (profileData?.gym_id) return profileData.gym_id;
-
-      // For super admins, get first gym
       const { data: isAdmin } = await supabase.rpc("is_super_admin", { _user_id: user!.id });
       if (isAdmin) {
         const { data: firstGym } = await supabase.from("gyms").select("id").limit(1).maybeSingle();
         return firstGym?.id || null;
       }
-
       return null;
     },
     enabled: !!user,
@@ -104,7 +100,6 @@ const GymDashboard = () => {
     enabled: !!userGymId,
   });
 
-  // Fetch all available exercises
   const { data: availableExercises, isLoading: isLoadingExercises } = useQuery({
     queryKey: ["available-exercises", userGymId],
     queryFn: async () => {
@@ -114,6 +109,22 @@ const GymDashboard = () => {
         .or(`is_global.eq.true,gym_id.eq.${userGymId}`)
         .order("muscle_group")
         .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userGymId,
+  });
+
+  // Payments for current month
+  const currentMonth = new Date().toISOString().slice(0, 7) + "-01";
+  const { data: payments } = useQuery({
+    queryKey: ["gym-payments", userGymId, currentMonth],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gym_payments")
+        .select("*")
+        .eq("gym_id", userGymId!)
+        .eq("period_month", currentMonth);
       if (error) throw error;
       return data || [];
     },
@@ -138,16 +149,43 @@ const GymDashboard = () => {
     }
   };
 
-  const handleInviteMember = async () => {
-    if (!userGymId || !inviteEmail) return;
+  const inviteLink = userGymId
+    ? `${window.location.origin}/auth?invite=${userGymId}`
+    : "";
+
+  const handleCopyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    toast.success(locale === "es" ? "Link copiado al portapapeles" : "Link copied to clipboard");
+  };
+
+  const handleAddManualMember = async () => {
+    if (!userGymId || !manualForm.displayName) return;
     try {
-      // Find user by display_name (since we can't query auth.users)
-      // For now, we add by user_id if provided, or show instructions
-      toast.info(locale === "es"
-        ? "Funcionalidad de invitación por email requiere integración de emails. Por ahora, agregá miembros desde el panel admin."
-        : "Email invitation requires email integration. For now, add members from the admin panel.");
-      setInviteDialog(false);
-      setInviteEmail("");
+      // Search for user by display_name in profiles that belong to no gym or this gym
+      const { data: foundProfiles } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .ilike("display_name", `%${manualForm.displayName}%`)
+        .is("gym_id", null)
+        .limit(1);
+
+      if (foundProfiles && foundProfiles.length > 0) {
+        const targetUserId = foundProfiles[0].user_id;
+        // Add to gym_members
+        const { error: memberError } = await supabase.from("gym_members").insert({
+          gym_id: userGymId,
+          user_id: targetUserId,
+        });
+        if (memberError) throw memberError;
+        // Update profile gym_id
+        await supabase.from("profiles").update({ gym_id: userGymId }).eq("user_id", targetUserId);
+        toast.success(locale === "es" ? `${foundProfiles[0].display_name} agregado al gimnasio` : `${foundProfiles[0].display_name} added to gym`);
+        queryClient.invalidateQueries({ queryKey: ["gym-members"] });
+      } else {
+        toast.error(locale === "es" ? "No se encontró un usuario con ese nombre. Debe registrarse primero." : "No user found with that name. They must register first.");
+      }
+      setAddManualDialog(false);
+      setManualForm({ displayName: "", email: "" });
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -167,8 +205,6 @@ const GymDashboard = () => {
         created_by: user!.id,
       }).select("id").single();
       if (error) throw error;
-
-      // Insert workout exercises
       const exerciseInserts = selectedExercises.map((ex, i) => ({
         workout_id: workout.id,
         exercise_id: ex.id,
@@ -179,7 +215,6 @@ const GymDashboard = () => {
       }));
       const { error: exError } = await supabase.from("workout_exercises").insert(exerciseInserts);
       if (exError) throw exError;
-
       toast.success(locale === "es" ? `Rutina creada con ${selectedExercises.length} ejercicios` : `Routine created with ${selectedExercises.length} exercises`);
       queryClient.invalidateQueries({ queryKey: ["gym-routines"] });
       setRoutineDialog(false);
@@ -204,6 +239,36 @@ const GymDashboard = () => {
       toast.success(locale === "es" ? `Rutina asignada a ${assignSelectedMembers.length} alumno(s)` : `Routine assigned to ${assignSelectedMembers.length} member(s)`);
       setAssignDialog(null);
       setAssignSelectedMembers([]);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleTogglePayment = async (memberId: string, memberUserId: string, currentlyPaid: boolean) => {
+    if (!userGymId) return;
+    try {
+      if (currentlyPaid) {
+        // Mark as unpaid
+        await supabase
+          .from("gym_payments")
+          .update({ is_paid: false, paid_at: null, marked_by: user!.id })
+          .eq("gym_id", userGymId)
+          .eq("user_id", memberUserId)
+          .eq("period_month", currentMonth);
+      } else {
+        // Upsert as paid
+        await supabase.from("gym_payments").upsert({
+          gym_id: userGymId,
+          user_id: memberUserId,
+          period_month: currentMonth,
+          is_paid: true,
+          paid_at: new Date().toISOString(),
+          marked_by: user!.id,
+          amount: 0,
+        }, { onConflict: "gym_id,user_id,period_month" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["gym-payments"] });
+      toast.success(locale === "es" ? "Estado de pago actualizado" : "Payment status updated");
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -255,6 +320,12 @@ const GymDashboard = () => {
     setEditingGym(true);
   };
 
+  const getPaymentStatus = (userId: string) => {
+    return payments?.find(p => p.user_id === userId);
+  };
+
+  const monthLabel = new Date().toLocaleString(locale === "es" ? "es-AR" : "en-US", { month: "long", year: "numeric" });
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="px-6 pt-8">
@@ -276,18 +347,19 @@ const GymDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded-xl bg-secondary mb-6">
+        <div className="flex gap-1 p-1 rounded-xl bg-secondary mb-6 overflow-x-auto">
           {[
             { id: "overview" as const, label: locale === "es" ? "General" : "Overview" },
             { id: "members" as const, label: locale === "es" ? "Alumnos" : "Members" },
-           { id: "routines" as const, label: locale === "es" ? "Rutinas" : "Routines" },
-           { id: "exercises" as const, label: locale === "es" ? "Ejercicios" : "Exercises" },
+            { id: "routines" as const, label: locale === "es" ? "Rutinas" : "Routines" },
+            { id: "payments" as const, label: locale === "es" ? "Cuotas" : "Payments" },
+            { id: "exercises" as const, label: locale === "es" ? "Ejercicios" : "Exercises" },
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex-1 py-2 rounded-lg text-sm font-medium transition-all",
+                "flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap",
                 activeTab === tab.id
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -337,8 +409,9 @@ const GymDashboard = () => {
             <div className="space-y-2">
               <h3 className="font-semibold text-foreground text-sm">{locale === "es" ? "Acciones rápidas" : "Quick actions"}</h3>
               {[
-                { icon: UserPlus, label: locale === "es" ? "Invitar alumno" : "Invite member", desc: locale === "es" ? "Agregar nuevo miembro" : "Add new member", action: () => setInviteDialog(true) },
+                { icon: UserPlus, label: locale === "es" ? "Invitar alumno" : "Invite member", desc: locale === "es" ? "Link de invitación o agregar manual" : "Invite link or add manually", action: () => setInviteDialog(true) },
                 { icon: ClipboardList, label: locale === "es" ? "Crear rutina" : "Create routine", desc: locale === "es" ? "Nueva plantilla de entrenamiento" : "New workout template", action: () => setRoutineDialog(true) },
+                { icon: CreditCard, label: locale === "es" ? "Control de cuotas" : "Payment control", desc: locale === "es" ? "Ver estado de pagos del mes" : "View monthly payment status", action: () => setActiveTab("payments") },
                 { icon: Pencil, label: locale === "es" ? "Editar gimnasio" : "Edit gym", desc: locale === "es" ? "Nombre, dirección, colores" : "Name, address, colors", action: openEditGym },
               ].map((action, i) => (
                 <button key={i} onClick={action.action} className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50 hover:border-energy/30 transition-all text-left">
@@ -358,27 +431,44 @@ const GymDashboard = () => {
 
         {activeTab === "members" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            <button
-              onClick={() => setInviteDialog(true)}
-              className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border border-dashed border-border text-muted-foreground hover:border-energy/40 hover:text-energy transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">{locale === "es" ? "Invitar alumno" : "Invite member"}</span>
-            </button>
-            {members && members.length > 0 ? members.map((m: any) => (
-              <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50">
-                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-sm font-bold text-foreground">
-                  {(m.profiles?.display_name || "?").slice(0, 2).toUpperCase()}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setInviteDialog(true)}
+                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl border border-dashed border-border text-muted-foreground hover:border-energy/40 hover:text-energy transition-all"
+              >
+                <Link className="w-4 h-4" />
+                <span className="text-xs font-medium">{locale === "es" ? "Invitar" : "Invite"}</span>
+              </button>
+              <button
+                onClick={() => setAddManualDialog(true)}
+                className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-xs font-medium">{locale === "es" ? "Agregar manual" : "Add manually"}</span>
+              </button>
+            </div>
+            {members && members.length > 0 ? members.map((m: any) => {
+              const payment = getPaymentStatus(m.user_id);
+              return (
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50">
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-sm font-bold text-foreground">
+                    {(m.profiles?.display_name || "?").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-foreground">{m.profiles?.display_name || "—"}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {locale === "es" ? "Nivel" : "Level"} {m.profiles?.level || 1} · {m.profiles?.xp || 0} XP
+                    </p>
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                    payment?.is_paid ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                  )}>
+                    {payment?.is_paid ? (locale === "es" ? "Al día" : "Paid") : (locale === "es" ? "Debe" : "Unpaid")}
+                  </span>
                 </div>
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-foreground">{m.profiles?.display_name || "—"}</span>
-                  <p className="text-xs text-muted-foreground">
-                    {locale === "es" ? "Nivel" : "Level"} {m.profiles?.level || 1} · {m.profiles?.xp || 0} XP
-                  </p>
-                </div>
-                <span className="text-xs text-xp font-semibold">{m.is_active ? (locale === "es" ? "Activo" : "Active") : (locale === "es" ? "Inactivo" : "Inactive")}</span>
-              </div>
-            )) : (
+              );
+            }) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 {locale === "es" ? "No hay alumnos aún" : "No members yet"}
               </div>
@@ -423,6 +513,48 @@ const GymDashboard = () => {
             )) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 {locale === "es" ? "No hay rutinas aún" : "No routines yet"}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === "payments" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <div className="p-4 rounded-2xl bg-card border border-border/50">
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-foreground text-sm capitalize">{monthLabel}</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-1">
+                {locale === "es" ? "Marcá el pago de cada alumno" : "Mark each member's payment"}
+              </p>
+            </div>
+
+            {members && members.length > 0 ? members.map((m: any) => {
+              const payment = getPaymentStatus(m.user_id);
+              const isPaid = !!payment?.is_paid;
+              return (
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50">
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-sm font-bold text-foreground">
+                    {(m.profiles?.display_name || "?").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-foreground">{m.profiles?.display_name || "—"}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {isPaid
+                        ? (locale === "es" ? "✓ Pagado" : "✓ Paid")
+                        : (locale === "es" ? "✗ Pendiente" : "✗ Pending")}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={isPaid}
+                    onCheckedChange={() => handleTogglePayment(m.id, m.user_id, isPaid)}
+                  />
+                </div>
+              );
+            }) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                {locale === "es" ? "No hay alumnos para mostrar" : "No members to display"}
               </div>
             )}
           </motion.div>
@@ -475,20 +607,63 @@ const GymDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Invite Dialog */}
+      {/* Invite Dialog with link + manual */}
       <Dialog open={inviteDialog} onOpenChange={setInviteDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{locale === "es" ? "Invitar Alumno" : "Invite Member"}</DialogTitle>
-            <DialogDescription>{locale === "es" ? "Ingresá el email del alumno" : "Enter the member's email"}</DialogDescription>
+            <DialogDescription>{locale === "es" ? "Compartí el link o agregá manualmente" : "Share the link or add manually"}</DialogDescription>
           </DialogHeader>
-          <div>
-            <Label>Email</Label>
-            <Input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="usuario@email.com" />
+          <div className="space-y-4">
+            {/* Invite link */}
+            <div>
+              <Label className="mb-2 block">{locale === "es" ? "Link de invitación" : "Invite link"}</Label>
+              <div className="flex gap-2">
+                <Input value={inviteLink} readOnly className="text-xs flex-1" />
+                <Button variant="outline" size="icon" onClick={handleCopyInviteLink}>
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {locale === "es" ? "El alumno se registra con este link y queda vinculado automáticamente." : "The member registers via this link and is auto-linked."}
+              </p>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">o</span></div>
+            </div>
+
+            <Button variant="outline" className="w-full" onClick={() => { setInviteDialog(false); setAddManualDialog(true); }}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              {locale === "es" ? "Agregar alumno manualmente" : "Add member manually"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Add Dialog */}
+      <Dialog open={addManualDialog} onOpenChange={setAddManualDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{locale === "es" ? "Agregar Alumno" : "Add Member"}</DialogTitle>
+            <DialogDescription>{locale === "es" ? "Buscá un usuario registrado por nombre" : "Search a registered user by name"}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>{locale === "es" ? "Nombre del alumno" : "Member name"}</Label>
+              <Input
+                value={manualForm.displayName}
+                onChange={e => setManualForm(f => ({ ...f, displayName: e.target.value }))}
+                placeholder={locale === "es" ? "Buscar por nombre..." : "Search by name..."}
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInviteDialog(false)}>{locale === "es" ? "Cancelar" : "Cancel"}</Button>
-            <Button onClick={handleInviteMember}>{locale === "es" ? "Invitar" : "Invite"}</Button>
+            <Button variant="outline" onClick={() => setAddManualDialog(false)}>{locale === "es" ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleAddManualMember} disabled={!manualForm.displayName}>
+              {locale === "es" ? "Agregar" : "Add"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -513,12 +688,8 @@ const GymDashboard = () => {
               <Label>{locale === "es" ? "Duración estimada (min)" : "Estimated duration (min)"}</Label>
               <Input type="number" value={routineForm.estimated_duration} onChange={e => setRoutineForm(f => ({ ...f, estimated_duration: Number(e.target.value) }))} />
             </div>
-
-            {/* Exercise Selection */}
             <div>
               <Label className="mb-2 block">{locale === "es" ? "Ejercicios" : "Exercises"} ({selectedExercises.length})</Label>
-              
-              {/* Selected exercises */}
               {selectedExercises.length > 0 && (
                 <div className="space-y-2 mb-3">
                   {selectedExercises.map((ex, i) => (
@@ -545,8 +716,6 @@ const GymDashboard = () => {
                   ))}
                 </div>
               )}
-
-              {/* Exercise selector with search and filters */}
               <ExerciseSelector
                 exercises={availableExercises}
                 isLoading={isLoadingExercises}

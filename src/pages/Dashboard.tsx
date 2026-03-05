@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Dumbbell, Play, Flame, ChevronRight } from "lucide-react";
+import { Dumbbell, Play, Flame, ChevronRight, Building2, Users, ClipboardList, CreditCard } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { XPBar } from "@/components/XPBar";
 import { LevelBadge } from "@/components/LevelBadge";
@@ -10,6 +10,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const XP_PER_LEVEL = 500;
 
@@ -17,6 +18,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { user } = useAuth();
+  const { isGymAdmin, gymId, isLoading: roleLoading } = useUserRole();
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
@@ -47,7 +49,44 @@ const Dashboard = () => {
 
       return { totalWorkouts, totalHours };
     },
-    enabled: !!user,
+    enabled: !!user && !isGymAdmin,
+  });
+
+  // Gym admin stats
+  const { data: gymStats } = useQuery({
+    queryKey: ["gym-admin-stats", gymId],
+    queryFn: async () => {
+      const { data: members } = await supabase
+        .from("gym_members")
+        .select("id")
+        .eq("gym_id", gymId!)
+        .eq("is_active", true);
+      const { data: routines } = await supabase
+        .from("workouts")
+        .select("id")
+        .eq("gym_id", gymId!);
+      const { data: gym } = await supabase
+        .from("gyms")
+        .select("name")
+        .eq("id", gymId!)
+        .maybeSingle();
+      // Pending payments this month
+      const currentMonth = new Date().toISOString().slice(0, 7) + "-01";
+      const { data: payments } = await supabase
+        .from("gym_payments")
+        .select("is_paid")
+        .eq("gym_id", gymId!)
+        .eq("period_month", currentMonth);
+      const pendingPayments = (payments || []).filter(p => !p.is_paid).length;
+
+      return {
+        memberCount: members?.length || 0,
+        routineCount: routines?.length || 0,
+        gymName: gym?.name || "",
+        pendingPayments,
+      };
+    },
+    enabled: !!gymId && isGymAdmin,
   });
 
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "—";
@@ -57,7 +96,7 @@ const Dashboard = () => {
   const xpInLevel = xp % XP_PER_LEVEL;
   const xpToNext = XP_PER_LEVEL;
 
-  if (profileLoading) {
+  if (profileLoading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -65,6 +104,72 @@ const Dashboard = () => {
     );
   }
 
+  // ========== GYM ADMIN DASHBOARD ==========
+  if (isGymAdmin) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="px-6 pt-8 pb-4">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
+              <h1 className="text-2xl font-display font-bold text-foreground">{gymStats?.gymName || displayName}</h1>
+            </div>
+            <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Building2 className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+
+          {/* Gym Stats */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+              <span className="text-2xl font-bold text-foreground">{gymStats?.memberCount || 0}</span>
+              <p className="text-[10px] text-muted-foreground uppercase">Alumnos</p>
+            </div>
+            <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+              <span className="text-2xl font-bold text-foreground">{gymStats?.routineCount || 0}</span>
+              <p className="text-[10px] text-muted-foreground uppercase">Rutinas</p>
+            </div>
+            <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+              <span className="text-2xl font-bold text-achievement">{gymStats?.pendingPayments || 0}</span>
+              <p className="text-[10px] text-muted-foreground uppercase">Cuotas pend.</p>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <h2 className="text-lg font-display font-bold text-foreground mb-3">Acciones rápidas</h2>
+          <div className="space-y-2">
+            {[
+              { icon: Users, label: "Gestionar alumnos", desc: "Invitar, agregar y ver alumnos", action: () => navigate("/gym") },
+              { icon: ClipboardList, label: "Rutinas", desc: "Crear y asignar rutinas", action: () => navigate("/gym") },
+              { icon: CreditCard, label: "Cuotas", desc: "Control de pagos mensuales", action: () => navigate("/gym") },
+            ].map((action, i) => (
+              <motion.button
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                onClick={action.action}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all text-left"
+              >
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <action.icon className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm font-semibold text-foreground">{action.label}</span>
+                  <p className="text-xs text-muted-foreground">{action.desc}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        <BottomNav />
+      </div>
+    );
+  }
+
+  // ========== REGULAR USER / INDIVIDUAL DASHBOARD ==========
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
