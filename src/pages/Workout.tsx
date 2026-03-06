@@ -4,6 +4,8 @@ import { ChevronLeft, SkipForward, Check, Timer, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { XPBar } from "@/components/XPBar";
+import { BottomNav } from "@/components/BottomNav";
+import { AssignedRoutines } from "@/components/AssignedRoutines";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +31,7 @@ interface ExerciseState {
 const Workout = () => {
   const navigate = useNavigate();
   const { workoutId } = useParams<{ workoutId: string }>();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const startedAt = useRef(new Date().toISOString());
@@ -85,17 +87,14 @@ const Workout = () => {
     setInitialized(true);
   }
 
-  // Fallback mock data when no workoutId
+  // Fallback mock data when workout has no exercises
   const mockExercises: ExerciseState[] = useMemo(() => [
     { id: "1", exerciseId: "", name: (t.workout as any).benchPress || "Bench Press", sets: [{ reps: 10, weight: 60, completed: false }, { reps: 8, weight: 65, completed: false }, { reps: 8, weight: 65, completed: false }, { reps: 6, weight: 70, completed: false }], restSeconds: 120 },
     { id: "2", exerciseId: "", name: (t.workout as any).inclineDB || "Incline DB Press", sets: [{ reps: 12, weight: 22, completed: false }, { reps: 10, weight: 24, completed: false }, { reps: 10, weight: 24, completed: false }], restSeconds: 90 },
     { id: "3", exerciseId: "", name: (t.workout as any).cableFly || "Cable Fly", sets: [{ reps: 15, weight: 15, completed: false }, { reps: 12, weight: 17, completed: false }, { reps: 12, weight: 17, completed: false }], restSeconds: 60 },
-    { id: "4", exerciseId: "", name: (t.workout as any).militaryPress || "Military Press", sets: [{ reps: 10, weight: 40, completed: false }, { reps: 8, weight: 42, completed: false }, { reps: 8, weight: 42, completed: false }], restSeconds: 90 },
-    { id: "5", exerciseId: "", name: (t.workout as any).lateralRaise || "Lateral Raise", sets: [{ reps: 15, weight: 10, completed: false }, { reps: 12, weight: 12, completed: false }, { reps: 12, weight: 12, completed: false }], restSeconds: 60 },
-    { id: "6", exerciseId: "", name: (t.workout as any).tricepsPushdown || "Triceps Pushdown", sets: [{ reps: 15, weight: 25, completed: false }, { reps: 12, weight: 27, completed: false }, { reps: 12, weight: 27, completed: false }], restSeconds: 60 },
   ], [t]);
 
-  const activeExercises = initialized ? exercises : (!workoutId ? mockExercises : []);
+  const activeExercises = initialized ? exercises : [];
 
   // Complete workout mutation
   const completeWorkoutMutation = useMutation({
@@ -141,6 +140,9 @@ const Workout = () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard-profile"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-workout-stats"] });
       queryClient.invalidateQueries({ queryKey: ["profile-page"] });
+      queryClient.invalidateQueries({ queryKey: ["user-achievements"] });
+      queryClient.invalidateQueries({ queryKey: ["achievements-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["achievements-workout-count"] });
       toast.success(`🏆 +${xpEarned} XP (${completedSetsCount} sets)`);
       navigate("/dashboard");
     },
@@ -148,6 +150,24 @@ const Workout = () => {
       toast.error(err.message || "Error al guardar el entreno");
     },
   });
+
+  // If no workoutId, show routine picker
+  if (!workoutId) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="px-6 pt-8">
+          <h1 className="text-2xl font-display font-bold text-foreground mb-1">
+            {t.nav.workout}
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            {locale === "es" ? "Elegí una rutina para entrenar" : "Choose a routine to train"}
+          </p>
+          <AssignedRoutines />
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
 
   if (isLoading || exercisesLoading) {
     return (

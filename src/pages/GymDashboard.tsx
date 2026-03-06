@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail } from "lucide-react";
+import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail, Bell, Send } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +33,8 @@ const GymDashboard = () => {
   const [selectedExercises, setSelectedExercises] = useState<{ id: string; name: string; sets: number; reps: number; rest: number }[]>([]);
   const [assignDialog, setAssignDialog] = useState<{ workoutId: string; workoutName: string } | null>(null);
   const [assignSelectedMembers, setAssignSelectedMembers] = useState<string[]>([]);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [sendingBulkReminder, setSendingBulkReminder] = useState(false);
 
   // Get user's gym
   const { data: userGymId } = useQuery({
@@ -282,6 +284,49 @@ const GymDashboard = () => {
     });
   };
 
+  const handleSendReminder = async (userId: string) => {
+    if (!userGymId || !gym) return;
+    setSendingReminder(userId);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-payment-reminder", {
+        body: { gymId: userGymId, userIds: [userId], gymName: gym.name },
+      });
+      if (error) throw error;
+      toast.success(locale === "es" ? "Recordatorio enviado" : "Reminder sent");
+    } catch (e: any) {
+      toast.error(e.message || "Error");
+    } finally {
+      setSendingReminder(null);
+    }
+  };
+
+  const handleBulkReminder = async () => {
+    if (!userGymId || !gym || !members) return;
+    const unpaidUserIds = members
+      .filter((m: any) => !getPaymentStatus(m.user_id)?.is_paid)
+      .map((m: any) => m.user_id);
+    if (unpaidUserIds.length === 0) {
+      toast.info(locale === "es" ? "Todos los alumnos están al día" : "All members are paid up");
+      return;
+    }
+    setSendingBulkReminder(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-payment-reminder", {
+        body: { gymId: userGymId, userIds: unpaidUserIds, gymName: gym.name },
+      });
+      if (error) throw error;
+      toast.success(
+        locale === "es"
+          ? `Recordatorio enviado a ${unpaidUserIds.length} alumno(s)`
+          : `Reminder sent to ${unpaidUserIds.length} member(s)`
+      );
+    } catch (e: any) {
+      toast.error(e.message || "Error");
+    } finally {
+      setSendingBulkReminder(false);
+    }
+  };
+
   if (gymLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -521,11 +566,23 @@ const GymDashboard = () => {
         {activeTab === "payments" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <div className="p-4 rounded-2xl bg-card border border-border/50">
-              <div className="flex items-center gap-2 mb-1">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-foreground text-sm capitalize">{monthLabel}</h3>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold text-foreground text-sm capitalize">{monthLabel}</h3>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkReminder}
+                  disabled={sendingBulkReminder}
+                  className="text-xs gap-1.5"
+                >
+                  <Send className={cn("w-3.5 h-3.5", sendingBulkReminder && "animate-pulse")} />
+                  {locale === "es" ? "Recordar a todos" : "Remind all"}
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mb-1">
+              <p className="text-xs text-muted-foreground">
                 {locale === "es" ? "Marcá el pago de cada alumno" : "Mark each member's payment"}
               </p>
             </div>
@@ -546,6 +603,16 @@ const GymDashboard = () => {
                         : (locale === "es" ? "✗ Pendiente" : "✗ Pending")}
                     </p>
                   </div>
+                  {!isPaid && (
+                    <button
+                      onClick={() => handleSendReminder(m.user_id)}
+                      disabled={sendingReminder === m.user_id}
+                      className="w-8 h-8 rounded-lg bg-achievement/10 flex items-center justify-center text-achievement hover:bg-achievement/20 transition-colors disabled:opacity-50"
+                      title={locale === "es" ? "Enviar recordatorio" : "Send reminder"}
+                    >
+                      <Bell className={cn("w-4 h-4", sendingReminder === m.user_id && "animate-pulse")} />
+                    </button>
+                  )}
                   <Switch
                     checked={isPaid}
                     onCheckedChange={() => handleTogglePayment(m.id, m.user_id, isPaid)}

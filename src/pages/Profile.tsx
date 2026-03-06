@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Crown, Dumbbell, Globe, LogOut, CreditCard, Building2 } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { BottomNav } from "@/components/BottomNav";
 import { LevelBadge } from "@/components/LevelBadge";
 import { XPBar } from "@/components/XPBar";
@@ -99,6 +100,7 @@ const Profile = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-display font-bold text-foreground">{t.profile.title}</h1>
+          <NotificationBell />
         </div>
 
         {/* User Card */}

@@ -1,0 +1,188 @@
+import { motion } from "framer-motion";
+import { Dumbbell, Play, Clock, ChevronRight, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useI18n } from "@/i18n";
+import { useUserRole } from "@/hooks/useUserRole";
+
+export function AssignedRoutines() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { locale } = useI18n();
+  const { gymId, isIndividual } = useUserRole();
+
+  // Assigned routines (gym members)
+  const { data: assignments, isLoading: assignLoading } = useQuery({
+    queryKey: ["my-assignments", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workout_assignments")
+        .select("id, notes, assigned_at, workout_id, workouts(id, name, description, estimated_duration, difficulty, workout_exercises(id))")
+        .eq("user_id", user!.id)
+        .order("assigned_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user && !isIndividual,
+  });
+
+  // Global workouts (for individual users without gym)
+  const { data: globalWorkouts, isLoading: globalLoading } = useQuery({
+    queryKey: ["global-workouts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workouts")
+        .select("id, name, description, estimated_duration, difficulty, workout_exercises(id)")
+        .eq("is_global", true)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user && isIndividual,
+  });
+
+  // Recent workout logs to show completion status
+  const { data: recentLogs } = useQuery({
+    queryKey: ["recent-workout-logs", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("workout_logs")
+        .select("workout_id, completed_at")
+        .eq("user_id", user!.id)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(50);
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const isLoading = assignLoading || globalLoading;
+
+  const difficultyLabel = (d: string | null) => {
+    const map: Record<string, string> = {
+      beginner: locale === "es" ? "Principiante" : "Beginner",
+      intermediate: locale === "es" ? "Intermedio" : "Intermediate",
+      advanced: locale === "es" ? "Avanzado" : "Advanced",
+      elite: "Elite",
+    };
+    return map[d || "beginner"] || d;
+  };
+
+  const difficultyColor = (d: string | null) => {
+    const map: Record<string, string> = {
+      beginner: "text-primary",
+      intermediate: "text-achievement",
+      advanced: "text-energy",
+      elite: "text-destructive",
+    };
+    return map[d || "beginner"] || "text-muted-foreground";
+  };
+
+  const getCompletionCount = (workoutId: string) => {
+    return recentLogs?.filter(l => l.workout_id === workoutId).length || 0;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Build routines list
+  const routines = !isIndividual
+    ? (assignments || []).map(a => ({
+        id: (a.workouts as any)?.id,
+        name: (a.workouts as any)?.name || "—",
+        description: (a.workouts as any)?.description,
+        duration: (a.workouts as any)?.estimated_duration,
+        difficulty: (a.workouts as any)?.difficulty,
+        exerciseCount: (a.workouts as any)?.workout_exercises?.length || 0,
+        notes: a.notes,
+        assignedAt: a.assigned_at,
+      }))
+    : (globalWorkouts || []).map(w => ({
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        duration: w.estimated_duration,
+        difficulty: w.difficulty,
+        exerciseCount: w.workout_exercises?.length || 0,
+        notes: null,
+        assignedAt: null,
+      }));
+
+  if (routines.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Dumbbell className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+        <p className="text-muted-foreground text-sm">
+          {!isIndividual
+            ? (locale === "es" ? "Tu gym aún no te asignó rutinas" : "Your gym hasn't assigned routines yet")
+            : (locale === "es" ? "No hay rutinas disponibles todavía" : "No routines available yet")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-display font-bold text-foreground">
+        {!isIndividual
+          ? (locale === "es" ? "Mis Rutinas Asignadas" : "My Assigned Routines")
+          : (locale === "es" ? "Rutinas Disponibles" : "Available Routines")}
+      </h2>
+      {routines.map((r, i) => {
+        const completions = getCompletionCount(r.id);
+        return (
+          <motion.button
+            key={r.id || i}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            onClick={() => r.id && navigate(`/workout/${r.id}`)}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all text-left group"
+          >
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+              <Dumbbell className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-foreground truncate">{r.name}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                {r.duration && (
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <Clock className="w-3 h-3" /> {r.duration} min
+                  </span>
+                )}
+                <span className="text-[10px] text-muted-foreground">
+                  {r.exerciseCount} {locale === "es" ? "ejercicios" : "exercises"}
+                </span>
+                {r.difficulty && (
+                  <span className={`text-[10px] font-medium ${difficultyColor(r.difficulty)}`}>
+                    {difficultyLabel(r.difficulty)}
+                  </span>
+                )}
+              </div>
+              {r.notes && (
+                <p className="text-[10px] text-muted-foreground mt-1 truncate italic">"{r.notes}"</p>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              {completions > 0 && (
+                <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                  {completions}×
+                </span>
+              )}
+              <Play className="w-5 h-5 text-primary opacity-50 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}

@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Dumbbell, Play, Flame, ChevronRight, Building2, Users, ClipboardList, CreditCard } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { XPBar } from "@/components/XPBar";
@@ -114,8 +115,11 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
               <h1 className="text-2xl font-display font-bold text-foreground">{gymStats?.gymName || displayName}</h1>
             </div>
-            <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-primary" />
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-primary" />
+              </div>
             </div>
           </div>
 
@@ -179,7 +183,10 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
             <h1 className="text-2xl font-display font-bold text-foreground">{displayName} 💪</h1>
           </div>
-          <LevelBadge level={level} />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <LevelBadge level={level} />
+          </div>
         </div>
 
         {/* XP Progress */}
