@@ -61,6 +61,36 @@ export type Database = {
           },
         ]
       }
+      cycle_completions: {
+        Row: {
+          completed_at: string
+          goal_type: string
+          id: string
+          total_duration_minutes: number
+          user_id: string
+          workouts_count: number
+          xp_earned: number
+        }
+        Insert: {
+          completed_at?: string
+          goal_type: string
+          id?: string
+          total_duration_minutes?: number
+          user_id: string
+          workouts_count?: number
+          xp_earned?: number
+        }
+        Update: {
+          completed_at?: string
+          goal_type?: string
+          id?: string
+          total_duration_minutes?: number
+          user_id?: string
+          workouts_count?: number
+          xp_earned?: number
+        }
+        Relationships: []
+      }
       exercises: {
         Row: {
           created_at: string
@@ -316,13 +346,16 @@ export type Database = {
           created_at: string
           display_name: string | null
           fitness_level: Database["public"]["Enums"]["fitness_level"] | null
+          gender: string | null
           gym_id: string | null
+          height_cm: number | null
           id: string
           level: number
           onboarding_completed: boolean | null
           streak_days: number
           updated_at: string
           user_id: string
+          weight_kg: number | null
           xp: number
         }
         Insert: {
@@ -330,13 +363,16 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           fitness_level?: Database["public"]["Enums"]["fitness_level"] | null
+          gender?: string | null
           gym_id?: string | null
+          height_cm?: number | null
           id?: string
           level?: number
           onboarding_completed?: boolean | null
           streak_days?: number
           updated_at?: string
           user_id: string
+          weight_kg?: number | null
           xp?: number
         }
         Update: {
@@ -344,13 +380,16 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           fitness_level?: Database["public"]["Enums"]["fitness_level"] | null
+          gender?: string | null
           gym_id?: string | null
+          height_cm?: number | null
           id?: string
           level?: number
           onboarding_completed?: boolean | null
           streak_days?: number
           updated_at?: string
           user_id?: string
+          weight_kg?: number | null
           xp?: number
         }
         Relationships: [
@@ -526,6 +565,33 @@ export type Database = {
           },
         ]
       }
+      weekly_challenge_completions: {
+        Row: {
+          completed_at: string
+          goal_key: string
+          id: string
+          user_id: string
+          week_start: string
+          xp_awarded: number
+        }
+        Insert: {
+          completed_at?: string
+          goal_key: string
+          id?: string
+          user_id: string
+          week_start: string
+          xp_awarded?: number
+        }
+        Update: {
+          completed_at?: string
+          goal_key?: string
+          id?: string
+          user_id?: string
+          week_start?: string
+          xp_awarded?: number
+        }
+        Relationships: []
+      }
       workout_assignments: {
         Row: {
           assigned_at: string
@@ -573,6 +639,7 @@ export type Database = {
       }
       workout_exercises: {
         Row: {
+          default_weight: number | null
           exercise_id: string
           id: string
           reps: number | null
@@ -582,6 +649,7 @@ export type Database = {
           workout_id: string
         }
         Insert: {
+          default_weight?: number | null
           exercise_id: string
           id?: string
           reps?: number | null
@@ -591,6 +659,7 @@ export type Database = {
           workout_id: string
         }
         Update: {
+          default_weight?: number | null
           exercise_id?: string
           id?: string
           reps?: number | null
@@ -677,10 +746,12 @@ export type Database = {
           description: string | null
           difficulty: Database["public"]["Enums"]["fitness_level"] | null
           estimated_duration: number | null
+          goal_type: string | null
           gym_id: string | null
           id: string
           is_global: boolean | null
           name: string
+          target_gender: string | null
           updated_at: string
         }
         Insert: {
@@ -689,10 +760,12 @@ export type Database = {
           description?: string | null
           difficulty?: Database["public"]["Enums"]["fitness_level"] | null
           estimated_duration?: number | null
+          goal_type?: string | null
           gym_id?: string | null
           id?: string
           is_global?: boolean | null
           name: string
+          target_gender?: string | null
           updated_at?: string
         }
         Update: {
@@ -701,10 +774,12 @@ export type Database = {
           description?: string | null
           difficulty?: Database["public"]["Enums"]["fitness_level"] | null
           estimated_duration?: number | null
+          goal_type?: string | null
           gym_id?: string | null
           id?: string
           is_global?: boolean | null
           name?: string
+          target_gender?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -722,6 +797,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_welcome_notification: {
+        Args: { _gym_id: string; _user_id: string }
+        Returns: undefined
+      }
       get_profile_id_from_auth: { Args: never; Returns: string }
       get_user_gym_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
@@ -740,6 +819,17 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      link_user_to_gym: {
+        Args: { _gym_id: string; _user_id: string }
+        Returns: undefined
+      }
+      search_unlinked_profiles: {
+        Args: { _search: string }
+        Returns: {
+          display_name: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "gym_admin" | "user"

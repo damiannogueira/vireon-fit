@@ -49,6 +49,8 @@ const Auth = () => {
       if (!existing) {
         await supabase.from("gym_members").insert({ user_id: userId, gym_id: gymId });
         await supabase.from("profiles").update({ gym_id: gymId }).eq("user_id", userId);
+        // Send welcome notification
+        await supabase.rpc("create_welcome_notification", { _user_id: userId, _gym_id: gymId });
       }
     } catch (e) {
       console.error("Failed to join gym:", e);

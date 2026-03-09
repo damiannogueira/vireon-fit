@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail, Bell, Send } from "lucide-react";
+import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail, Bell, Send, Trash2, Upload, Image } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +35,9 @@ const GymDashboard = () => {
   const [assignSelectedMembers, setAssignSelectedMembers] = useState<string[]>([]);
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [sendingBulkReminder, setSendingBulkReminder] = useState(false);
+  const [removeMemberDialog, setRemoveMemberDialog] = useState<{ id: string; userId: string; name: string } | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Get user's gym
   const { data: userGymId } = useQuery({
@@ -133,6 +136,27 @@ const GymDashboard = () => {
     enabled: !!userGymId,
   });
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !gym) return;
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const filePath = `${gym.id}/logo.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("gym-logos").upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("gym-logos").getPublicUrl(filePath);
+      const logoUrl = `${publicUrl}?t=${Date.now()}`;
+      await supabase.from("gyms").update({ logo_url: logoUrl }).eq("id", gym.id);
+      queryClient.invalidateQueries({ queryKey: ["gym-detail"] });
+      toast.success(locale === "es" ? "Logo actualizado" : "Logo updated");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleSaveGym = async () => {
     if (!gym) return;
     try {
@@ -163,13 +187,11 @@ const GymDashboard = () => {
   const handleAddManualMember = async () => {
     if (!userGymId || !manualForm.displayName) return;
     try {
-      // Search for user by display_name in profiles that belong to no gym or this gym
-      const { data: foundProfiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name")
-        .ilike("display_name", `%${manualForm.displayName}%`)
-        .is("gym_id", null)
-        .limit(1);
+      // Use SECURITY DEFINER function to search profiles with gym_id IS NULL
+      const { data: foundProfiles, error: searchError } = await supabase
+        .rpc("search_unlinked_profiles", { _search: manualForm.displayName });
+
+      if (searchError) throw searchError;
 
       if (foundProfiles && foundProfiles.length > 0) {
         const targetUserId = foundProfiles[0].user_id;
@@ -180,7 +202,7 @@ const GymDashboard = () => {
         });
         if (memberError) throw memberError;
         // Update profile gym_id
-        await supabase.from("profiles").update({ gym_id: userGymId }).eq("user_id", targetUserId);
+        await supabase.rpc("link_user_to_gym", { _user_id: targetUserId, _gym_id: userGymId });
         toast.success(locale === "es" ? `${foundProfiles[0].display_name} agregado al gimnasio` : `${foundProfiles[0].display_name} added to gym`);
         queryClient.invalidateQueries({ queryKey: ["gym-members"] });
       } else {
@@ -327,6 +349,34 @@ const GymDashboard = () => {
     }
   };
 
+  const handleRemoveMember = async () => {
+    if (!removeMemberDialog || !userGymId) return;
+    setRemovingMember(true);
+    try {
+      // Deactivate in gym_members
+      await supabase
+        .from("gym_members")
+        .update({ is_active: false })
+        .eq("id", removeMemberDialog.id);
+      // Remove gym_id from profile
+      await supabase
+        .from("profiles")
+        .update({ gym_id: null })
+        .eq("user_id", removeMemberDialog.userId);
+      toast.success(
+        locale === "es"
+          ? `${removeMemberDialog.name} fue removido del gimnasio`
+          : `${removeMemberDialog.name} was removed from the gym`
+      );
+      queryClient.invalidateQueries({ queryKey: ["gym-members"] });
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setRemovingMember(false);
+      setRemoveMemberDialog(null);
+    }
+  };
+
   if (gymLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -377,10 +427,14 @@ const GymDashboard = () => {
         {/* Gym Header */}
         <div className="flex items-center gap-3 mb-6">
           <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
-            style={{ background: `linear-gradient(135deg, ${gym.primary_color || '#8B5CF6'}, ${gym.secondary_color || '#06B6D4'})` }}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden"
+            style={{ background: gym.logo_url ? 'transparent' : `linear-gradient(135deg, ${gym.primary_color || '#8B5CF6'}, ${gym.secondary_color || '#06B6D4'})` }}
           >
-            <Building2 className="w-6 h-6 text-white" />
+            {gym.logo_url ? (
+              <img src={gym.logo_url} alt={gym.name} className="w-full h-full object-cover" />
+            ) : (
+              <Building2 className="w-6 h-6 text-white" />
+            )}
           </div>
           <div className="flex-1">
             <h1 className="text-xl font-display font-bold text-foreground">{gym.name}</h1>
@@ -505,12 +559,19 @@ const GymDashboard = () => {
                       {locale === "es" ? "Nivel" : "Level"} {m.profiles?.level || 1} · {m.profiles?.xp || 0} XP
                     </p>
                   </div>
-                  <span className={cn(
+                   <span className={cn(
                     "text-[10px] font-semibold px-2 py-0.5 rounded-full",
                     payment?.is_paid ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
                   )}>
                     {payment?.is_paid ? (locale === "es" ? "Al día" : "Paid") : (locale === "es" ? "Debe" : "Unpaid")}
                   </span>
+                  <button
+                    onClick={() => setRemoveMemberDialog({ id: m.id, userId: m.user_id, name: m.profiles?.display_name || "—" })}
+                    className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive hover:bg-destructive/20 transition-colors"
+                    title={locale === "es" ? "Remover alumno" : "Remove member"}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               );
             }) : (
@@ -642,6 +703,27 @@ const GymDashboard = () => {
             <DialogDescription>{locale === "es" ? "Modificá los datos de tu gimnasio" : "Update your gym info"}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Logo upload */}
+            <div>
+              <Label>{locale === "es" ? "Logo del gimnasio" : "Gym logo"}</Label>
+              <div className="flex items-center gap-3 mt-2">
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden border border-border"
+                  style={{ background: gym?.logo_url ? 'transparent' : `linear-gradient(135deg, ${gymForm.primary_color || '#8B5CF6'}, ${gymForm.secondary_color || '#06B6D4'})` }}
+                >
+                  {gym?.logo_url ? (
+                    <img src={gym.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <Image className="w-6 h-6 text-white" />
+                  )}
+                </div>
+                <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary text-sm font-medium text-foreground cursor-pointer hover:bg-secondary/80 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  {uploadingLogo ? (locale === "es" ? "Subiendo..." : "Uploading...") : (locale === "es" ? "Subir logo" : "Upload logo")}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                </label>
+              </div>
+            </div>
             <div>
               <Label>{locale === "es" ? "Nombre" : "Name"}</Label>
               <Input value={gymForm.name} onChange={e => setGymForm(f => ({ ...f, name: e.target.value }))} />
@@ -848,7 +930,30 @@ const GymDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <BottomNav />
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={!!removeMemberDialog} onOpenChange={(open) => { if (!open) setRemoveMemberDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{locale === "es" ? "Remover alumno" : "Remove member"}</DialogTitle>
+            <DialogDescription>
+              {locale === "es"
+                ? `¿Estás seguro de que querés remover a ${removeMemberDialog?.name} del gimnasio? Podrá ser re-invitado en el futuro.`
+                : `Are you sure you want to remove ${removeMemberDialog?.name} from the gym? They can be re-invited later.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveMemberDialog(null)} disabled={removingMember}>
+              {locale === "es" ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button variant="destructive" onClick={handleRemoveMember} disabled={removingMember}>
+              {removingMember
+                ? (locale === "es" ? "Removiendo..." : "Removing...")
+                : (locale === "es" ? "Sí, remover" : "Yes, remove")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

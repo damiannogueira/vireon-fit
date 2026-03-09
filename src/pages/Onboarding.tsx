@@ -1,14 +1,34 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, Target, Zap, Calendar, Clock, Dumbbell } from "lucide-react";
+import { ChevronRight, ChevronLeft, Target, Zap, Calendar, Clock, Dumbbell, User, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type Goal = "hipertrofia" | "fuerza" | "resistencia" | "perdida_grasa";
 type Level = "principiante" | "intermedio" | "avanzado";
+type Gender = "male" | "female" | "other";
+
+const LEVEL_MAP: Record<Level, "beginner" | "intermediate" | "advanced"> = {
+  principiante: "beginner",
+  intermedio: "intermediate",
+  avanzado: "advanced",
+};
+
+const GOAL_MAP: Record<Goal, string> = {
+  hipertrofia: "hipertrofia",
+  fuerza: "fuerza",
+  resistencia: "perdida_grasa",
+  perdida_grasa: "perdida_grasa",
+};
 
 interface OnboardingData {
+  gender: Gender | null;
+  height: number;
+  weight: number;
   goal: Goal | null;
   level: Level | null;
   days: number;
@@ -18,15 +38,26 @@ interface OnboardingData {
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
   const [data, setData] = useState<OnboardingData>({
+    gender: null,
+    height: 170,
+    weight: 70,
     goal: null,
     level: null,
     days: 4,
     duration: 60,
     equipment: [],
   });
+
+  const genders: { id: Gender; label: string; emoji: string }[] = [
+    { id: "male", label: t.onboarding.male, emoji: "🙋‍♂️" },
+    { id: "female", label: t.onboarding.female, emoji: "🙋‍♀️" },
+    { id: "other", label: t.onboarding.other, emoji: "🧑" },
+  ];
 
   const goals: { id: Goal; label: string; emoji: string; desc: string }[] = [
     { id: "hipertrofia", label: t.onboarding.hypertrophy, emoji: "💪", desc: t.onboarding.hypertrophyDesc },
@@ -46,11 +77,44 @@ const Onboarding = () => {
     t.onboarding.bodyweight, t.onboarding.bands, t.onboarding.kettlebell, t.onboarding.trx,
   ];
 
-  const totalSteps = 5;
+  const totalSteps = 7;
+
+  const saveOnboarding = async () => {
+    if (!user || !data.goal || !data.level || !data.gender) return;
+    setSaving(true);
+    try {
+      await supabase
+        .from("onboarding_progress")
+        .update({
+          fitness_goal: GOAL_MAP[data.goal],
+          preferred_days: Array.from({ length: data.days }, (_, i) => String(i + 1)),
+          current_step: totalSteps,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+
+      await supabase
+        .from("profiles")
+        .update({
+          fitness_level: LEVEL_MAP[data.level],
+          onboarding_completed: true,
+          gender: data.gender,
+          height_cm: data.height,
+          weight_kg: data.weight,
+        })
+        .eq("user_id", user.id);
+
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast.error(err.message || "Error saving onboarding data");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const next = () => {
     if (step < totalSteps - 1) setStep(step + 1);
-    else navigate("/dashboard");
+    else saveOnboarding();
   };
   const prev = () => { if (step > 0) setStep(step - 1); };
 
@@ -65,11 +129,13 @@ const Onboarding = () => {
 
   const canProceed = () => {
     switch (step) {
-      case 0: return !!data.goal;
-      case 1: return !!data.level;
-      case 2: return data.days >= 2;
-      case 3: return data.duration >= 20;
-      case 4: return data.equipment.length > 0;
+      case 0: return !!data.gender;
+      case 1: return data.height >= 100 && data.height <= 250 && data.weight >= 30 && data.weight <= 300;
+      case 2: return !!data.goal;
+      case 3: return !!data.level;
+      case 4: return data.days >= 2;
+      case 5: return data.duration >= 20;
+      case 6: return data.equipment.length > 0;
       default: return true;
     }
   };
@@ -102,7 +168,83 @@ const Onboarding = () => {
           transition={{ duration: 0.3 }}
           className="flex-1"
         >
+          {/* Step 0: Gender */}
           {step === 0 && (
+            <div>
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">
+                <User className="inline w-6 h-6 text-primary mr-2" />
+                {t.onboarding.genderTitle}
+              </h2>
+              <p className="text-muted-foreground text-sm mb-6">{t.onboarding.genderHelp}</p>
+              <div className="space-y-3">
+                {genders.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => setData(d => ({ ...d, gender: g.id }))}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200",
+                      data.gender === g.id
+                        ? "bg-primary/10 border-primary/40 shadow-[0_0_16px_hsl(142_72%_50%/0.15)]"
+                        : "bg-card border-border/50 hover:border-primary/20"
+                    )}
+                  >
+                    <span className="text-2xl">{g.emoji}</span>
+                    <span className="font-semibold text-foreground">{g.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Height & Weight */}
+          {step === 1 && (
+            <div>
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">
+                <Ruler className="inline w-6 h-6 text-primary mr-2" />
+                {t.onboarding.heightWeight}
+              </h2>
+              <p className="text-muted-foreground text-sm mb-8">{t.onboarding.heightWeightHelp}</p>
+              <div className="space-y-8">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-3 block">{t.onboarding.height}</label>
+                  <div className="flex items-center justify-center gap-6">
+                    <button
+                      onClick={() => setData(d => ({ ...d, height: Math.max(100, d.height - 1) }))}
+                      className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
+                    >-</button>
+                    <div className="text-center">
+                      <span className="text-5xl font-display font-black text-primary text-glow-primary">{data.height}</span>
+                      <p className="text-sm text-muted-foreground mt-1">cm</p>
+                    </div>
+                    <button
+                      onClick={() => setData(d => ({ ...d, height: Math.min(250, d.height + 1) }))}
+                      className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
+                    >+</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-3 block">{t.onboarding.weight}</label>
+                  <div className="flex items-center justify-center gap-6">
+                    <button
+                      onClick={() => setData(d => ({ ...d, weight: Math.max(30, d.weight - 1) }))}
+                      className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
+                    >-</button>
+                    <div className="text-center">
+                      <span className="text-5xl font-display font-black text-primary text-glow-primary">{data.weight}</span>
+                      <p className="text-sm text-muted-foreground mt-1">kg</p>
+                    </div>
+                    <button
+                      onClick={() => setData(d => ({ ...d, weight: Math.min(300, d.weight + 1) }))}
+                      className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
+                    >+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Goal */}
+          {step === 2 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Target className="inline w-6 h-6 text-primary mr-2" />
@@ -132,7 +274,8 @@ const Onboarding = () => {
             </div>
           )}
 
-          {step === 1 && (
+          {/* Step 3: Level */}
+          {step === 3 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Zap className="inline w-6 h-6 text-primary mr-2" />
@@ -162,7 +305,8 @@ const Onboarding = () => {
             </div>
           )}
 
-          {step === 2 && (
+          {/* Step 4: Days */}
+          {step === 4 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Calendar className="inline w-6 h-6 text-primary mr-2" />
@@ -173,9 +317,7 @@ const Onboarding = () => {
                 <button
                   onClick={() => setData(d => ({ ...d, days: Math.max(2, d.days - 1) }))}
                   className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
-                >
-                  -
-                </button>
+                >-</button>
                 <div className="text-center">
                   <span className="text-6xl font-display font-black text-primary text-glow-primary">{data.days}</span>
                   <p className="text-sm text-muted-foreground mt-1">{t.onboarding.daysPerWeek}</p>
@@ -183,9 +325,7 @@ const Onboarding = () => {
                 <button
                   onClick={() => setData(d => ({ ...d, days: Math.min(7, d.days + 1) }))}
                   className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
-                >
-                  +
-                </button>
+                >+</button>
               </div>
               <div className="flex justify-center gap-2">
                 {[2, 3, 4, 5, 6].map(d => (
@@ -196,15 +336,14 @@ const Onboarding = () => {
                       "w-10 h-10 rounded-xl text-sm font-semibold transition-all",
                       data.days === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                     )}
-                  >
-                    {d}
-                  </button>
+                  >{d}</button>
                 ))}
               </div>
             </div>
           )}
 
-          {step === 3 && (
+          {/* Step 5: Duration */}
+          {step === 5 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Clock className="inline w-6 h-6 text-primary mr-2" />
@@ -224,15 +363,14 @@ const Onboarding = () => {
                       "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all",
                       data.duration === d ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                     )}
-                  >
-                    {d} {t.common.minutes}
-                  </button>
+                  >{d} {t.common.minutes}</button>
                 ))}
               </div>
             </div>
           )}
 
-          {step === 4 && (
+          {/* Step 6: Equipment */}
+          {step === 6 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Dumbbell className="inline w-6 h-6 text-primary mr-2" />
@@ -250,9 +388,7 @@ const Onboarding = () => {
                         ? "bg-primary/10 border-primary/40 text-primary"
                         : "bg-card border-border/50 text-muted-foreground hover:border-primary/20 hover:text-foreground"
                     )}
-                  >
-                    {eq}
-                  </button>
+                  >{eq}</button>
                 ))}
               </div>
             </div>
@@ -264,16 +400,16 @@ const Onboarding = () => {
       <motion.div className="mt-6">
         <button
           onClick={next}
-          disabled={!canProceed()}
+          disabled={!canProceed() || saving}
           className={cn(
             "w-full flex items-center justify-center gap-2 h-14 rounded-2xl font-bold text-lg transition-all duration-300 active:scale-[0.98]",
-            canProceed()
+            canProceed() && !saving
               ? "bg-primary text-primary-foreground shadow-[0_0_24px_hsl(142_72%_50%/0.3)]"
               : "bg-secondary text-muted-foreground cursor-not-allowed"
           )}
         >
-          {step === totalSteps - 1 ? t.onboarding.generateRoutine : t.onboarding.continue}
-          <ChevronRight className="w-5 h-5" />
+          {saving ? "..." : step === totalSteps - 1 ? t.onboarding.generateRoutine : t.onboarding.continue}
+          {!saving && <ChevronRight className="w-5 h-5" />}
         </button>
       </motion.div>
     </div>

@@ -1,0 +1,11 @@
+
+-- Add goal_type column to workouts for categorization
+ALTER TABLE public.workouts ADD COLUMN IF NOT EXISTS goal_type text;
+
+-- Update existing global workouts with goal categories
+UPDATE public.workouts SET goal_type = 'perdida_grasa' WHERE id IN ('a0000002-0000-0000-0000-000000000001', 'a0000002-0000-0000-0000-000000000002');
+UPDATE public.workouts SET goal_type = 'hipertrofia' WHERE id IN ('a0000002-0000-0000-0000-000000000003', 'a0000002-0000-0000-0000-000000000004', 'a0000002-0000-0000-0000-000000000005');
+UPDATE public.workouts SET goal_type = 'fuerza' WHERE id IN ('a0000002-0000-0000-0000-000000000006', 'a0000002-0000-0000-0000-000000000007', 'a0000002-0000-0000-0000-000000000008');
+UPDATE public.workouts SET goal_type = 'movilidad' WHERE id IN ('a0000002-0000-0000-0000-000000000009', 'a0000002-0000-0000-0000-000000000010');
+-- Base routines are general purpose (suitable for any goal)
+UPDATE public.workouts SET goal_type = 'general' WHERE id IN ('a0000001-0000-0000-0000-000000000001', 'a0000001-0000-0000-0000-000000000002', 'a0000001-0000-0000-0000-000000000003', 'a0000001-0000-0000-0000-000000000004', 'a0000001-0000-0000-0000-000000000005', 'a0000001-0000-0000-0000-000000000006');

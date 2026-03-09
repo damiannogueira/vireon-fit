@@ -3,10 +3,20 @@ import { Trophy, Flame, Target, Zap, Dumbbell, Star, Clock, TrendingUp } from "l
 import { BottomNav } from "@/components/BottomNav";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { XPBar } from "@/components/XPBar";
+import { WeeklyChallenge } from "@/components/WeeklyChallenge";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+
+const getWeekStart = () => {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.getFullYear(), now.getMonth(), diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString();
+};
 
 const Achievements = () => {
   const { t } = useI18n();
@@ -58,6 +68,34 @@ const Achievements = () => {
     enabled: !!user,
   });
 
+  const { data: onboarding } = useQuery({
+    queryKey: ["achievements-onboarding", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("onboarding_progress")
+        .select("fitness_goal")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: thisWeekWorkouts = 0 } = useQuery({
+    queryKey: ["achievements-weekly-workouts", user?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("workout_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .not("completed_at", "is", null)
+        .gte("completed_at", getWeekStart());
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
   const unlockedIds = new Set(userAchievements?.map(ua => ua.achievement_id) || []);
 
   const iconMap: Record<string, any> = {
@@ -102,16 +140,12 @@ const Achievements = () => {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-2xl bg-gradient-to-r from-achievement/10 to-transparent border border-achievement/20 mb-8"
+          className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">🔥</span>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground">{t.achievements.challenge}</h3>
-              <p className="text-xs text-muted-foreground">{t.achievements.challengeDesc}</p>
-            </div>
-          </div>
-          <XPBar current={Math.min(workoutCount || 0, 5)} max={5} variant="achievement" size="md" />
+          <WeeklyChallenge
+            goalKey={onboarding?.fitness_goal || "general"}
+            thisWeekWorkouts={thisWeekWorkouts}
+          />
         </motion.div>
 
         {/* Badges Grid */}
