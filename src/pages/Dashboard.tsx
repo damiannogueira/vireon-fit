@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { NotificationBell } from "@/components/NotificationBell";
-import { Dumbbell, Play, ChevronRight, Building2, Users, ClipboardList, CreditCard, Target, Lock, Ruler, Check, Trophy, RefreshCw, ChevronDown } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
+import { Dumbbell, Play, ChevronRight, Building2, Users, ClipboardList, CreditCard, Target, Lock, Ruler, Check, Trophy, RefreshCw, ChevronDown, BarChart3 } from "lucide-react";
 import { GoalChanger } from "@/components/GoalChanger";
 import { WeeklyChallenge } from "@/components/WeeklyChallenge";
 import { BottomNav } from "@/components/BottomNav";
@@ -41,7 +42,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { t, locale } = useI18n();
   const { user } = useAuth();
-  const { isGymAdmin, gymId, isLoading: roleLoading } = useUserRole();
+  const { isGymAdmin, gymId, gymName, isIndividual, isGymMember, isLoading: roleLoading } = useUserRole();
   const { isPro } = useSubscription();
   const queryClient = useQueryClient();
   const [resetting, setResetting] = useState(false);
@@ -212,6 +213,7 @@ const Dashboard = () => {
           <h2 className="text-lg font-display font-bold text-foreground mb-3">{locale === "es" ? "Acciones rápidas" : "Quick actions"}</h2>
           <div className="space-y-2">
             {[
+              { icon: BarChart3, label: locale === "es" ? "Panel Coach" : "Coach Dashboard", desc: locale === "es" ? "Monitoreo y seguimiento de alumnos" : "Member monitoring & engagement", action: () => navigate("/gym/dashboard") },
               { icon: Users, label: locale === "es" ? "Gestionar alumnos" : "Manage members", desc: locale === "es" ? "Invitar, agregar y ver alumnos" : "Invite, add and view members", action: () => navigate("/gym") },
               { icon: ClipboardList, label: locale === "es" ? "Rutinas" : "Routines", desc: locale === "es" ? "Crear y asignar rutinas" : "Create and assign routines", action: () => navigate("/gym") },
               { icon: CreditCard, label: locale === "es" ? "Cuotas" : "Payments", desc: locale === "es" ? "Control de pagos mensuales" : "Monthly payment tracking", action: () => navigate("/gym") },
@@ -319,7 +321,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="px-6 pt-8 pb-4">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
             <h1 className="text-2xl font-display font-bold text-foreground">{displayName} 💪</h1>
@@ -329,6 +331,103 @@ const Dashboard = () => {
             <LevelBadge level={level} />
           </div>
         </div>
+
+        {/* Mode indicator - SUPER VISIBLE */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            "p-3 rounded-xl mb-6 flex items-center gap-3 border",
+            isIndividual 
+              ? "bg-primary/10 border-primary/30" 
+              : "bg-achievement/10 border-achievement/30"
+          )}
+        >
+          {isIndividual ? (
+            <>
+              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-foreground">
+                  {locale === "es" ? "🏃‍♂️ Modo Individual" : "🏃‍♂️ Individual Mode"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "es" ? "Entrenás por tu cuenta con rutinas globales" : "Training on your own with global routines"}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-lg bg-achievement/20 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-achievement" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-foreground">
+                  {locale === "es" ? "🏋️ Miembro de Gym" : "🏋️ Gym Member"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {gymName || (locale === "es" ? "Entrenás con rutinas de tu gimnasio" : "Training with your gym's routines")}
+                </p>
+              </div>
+            </>
+          )}
+        </motion.div>
+
+        {/* Personal Coach Message */}
+        {isIndividual && (() => {
+          const totalW = workoutStats?.totalWorkouts || 0;
+          const weekW = workoutStats?.thisWeekWorkouts || 0;
+          const cycles = cycleCompletions?.length || 0;
+          
+          let coachMsg = "";
+          let coachEmoji = "🤖";
+          if (streak > 7) {
+            coachMsg = locale === "es" 
+              ? `¡${streak} días de racha! Sos una máquina 🔥` 
+              : `${streak} day streak! You're a machine 🔥`;
+            coachEmoji = "🔥";
+          } else if (allPlanCompleted) {
+            coachMsg = locale === "es"
+              ? `Completaste todo tu plan. ${cycles > 0 ? `Ya van ${cycles} ciclos.` : ""} ¡Increíble! 🏆`
+              : `You finished your full plan. ${cycles > 0 ? `${cycles} cycles done.` : ""} Incredible! 🏆`;
+            coachEmoji = "🏆";
+          } else if (weekW === 0) {
+            coachMsg = locale === "es"
+              ? "Esta semana todavía no entrenaste. ¡Empezá hoy! 💪"
+              : "You haven't trained yet this week. Start today! 💪";
+            coachEmoji = "💡";
+          } else if (nextWorkout) {
+            const dayNum = visibleWorkouts.findIndex(w => w.id === nextWorkout?.id) + 1;
+            coachMsg = locale === "es"
+              ? `Estás en el día ${dayNum} de tu plan. ¡Seguí así! ⚡`
+              : `You're on day ${dayNum} of your training plan. Keep going! ⚡`;
+            coachEmoji = "⚡";
+          } else {
+            coachMsg = locale === "es"
+              ? `Llevás ${totalW} entrenos en total. Tu entrenador virtual está orgulloso 🎯`
+              : `${totalW} total workouts logged. Your virtual coach is proud 🎯`;
+          }
+          
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 }}
+              className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-r from-card to-secondary/30 border border-border/40 mb-6"
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-lg flex-shrink-0">
+                {coachEmoji}
+              </div>
+              <div>
+                <p className="text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5">
+                  {locale === "es" ? "Tu coach virtual" : "Your virtual coach"}
+                </p>
+                <p className="text-sm text-foreground font-medium">{coachMsg}</p>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* XP Progress */}
         <motion.div
@@ -345,8 +444,8 @@ const Dashboard = () => {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 mb-6">
           <StatCard label={t.dashboard.streak} value={`${streak}d`} icon="streak" />
-          <StatCard label={t.dashboard.workouts} value={String(workoutStats?.totalWorkouts || 0)} icon="workouts" />
-          <StatCard label="XP" value={String(xp)} icon="weight" />
+          <StatCard label={locale === "es" ? "Esta sem." : "This wk"} value={String(workoutStats?.thisWeekWorkouts || 0)} icon="workouts" />
+          <StatCard label={locale === "es" ? "Ciclos" : "Cycles"} value={String(cycleCompletions?.length || 0)} icon="weight" />
         </div>
 
         {/* Physical data summary */}
@@ -494,7 +593,7 @@ const Dashboard = () => {
             )}
           </motion.div>
         </div>
-      ) : nextWorkout && (
+      ) : nextWorkout ? (
         <div className="px-6 mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-display font-bold text-foreground">
@@ -525,6 +624,28 @@ const Dashboard = () => {
               </div>
             </button>
           </motion.div>
+        </div>
+      ) : visibleWorkouts.length === 0 && (
+        <div className="px-6 mb-6">
+          <EmptyState
+            icon={Dumbbell}
+            emoji="🏋️"
+            title={locale === "es" ? "Sin rutinas disponibles" : "No routines available"}
+            description={
+              !hasOnboarding
+                ? (locale === "es"
+                  ? "Completá tu configuración inicial para recibir un plan de entrenamiento personalizado."
+                  : "Complete your initial setup to get a personalized training plan.")
+                : (locale === "es"
+                  ? "No encontramos rutinas para tu objetivo actual. Probá cambiar tu objetivo o explorá el catálogo."
+                  : "We couldn't find routines for your current goal. Try changing your goal or explore the catalog.")
+            }
+            action={
+              !hasOnboarding
+                ? { label: locale === "es" ? "Configurar ahora" : "Set up now", onClick: () => navigate("/onboarding") }
+                : { label: locale === "es" ? "Ver catálogo" : "Browse catalog", onClick: () => navigate("/workout") }
+            }
+          />
         </div>
       )}
 

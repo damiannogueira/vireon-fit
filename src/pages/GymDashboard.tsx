@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail, Bell, Send, Trash2, Upload, Image } from "lucide-react";
+import { Building2, Users, Palette, UserPlus, ClipboardList, ChevronRight, Plus, Pencil, Save, X, Play, Check, Dumbbell, UserCheck, CreditCard, Copy, Link, Mail, Bell, Send, Trash2, Upload, Image, ArrowLeft, BarChart3 } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -424,6 +424,15 @@ const GymDashboard = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="px-6 pt-8">
+        {/* Back button */}
+        <button 
+          onClick={() => navigate("/dashboard")} 
+          className="mb-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {locale === "es" ? "Volver" : "Back"}
+        </button>
+        
         {/* Gym Header */}
         <div className="flex items-center gap-3 mb-6">
           <div
@@ -508,6 +517,7 @@ const GymDashboard = () => {
             <div className="space-y-2">
               <h3 className="font-semibold text-foreground text-sm">{locale === "es" ? "Acciones rápidas" : "Quick actions"}</h3>
               {[
+                { icon: BarChart3, label: locale === "es" ? "Panel Coach" : "Coach Dashboard", desc: locale === "es" ? "Monitoreo y seguimiento de alumnos" : "Member monitoring and engagement", action: () => navigate("/gym/dashboard") },
                 { icon: UserPlus, label: locale === "es" ? "Invitar alumno" : "Invite member", desc: locale === "es" ? "Link de invitación o agregar manual" : "Invite link or add manually", action: () => setInviteDialog(true) },
                 { icon: ClipboardList, label: locale === "es" ? "Crear rutina" : "Create routine", desc: locale === "es" ? "Nueva plantilla de entrenamiento" : "New workout template", action: () => setRoutineDialog(true) },
                 { icon: CreditCard, label: locale === "es" ? "Control de cuotas" : "Payment control", desc: locale === "es" ? "Ver estado de pagos del mes" : "View monthly payment status", action: () => setActiveTab("payments") },

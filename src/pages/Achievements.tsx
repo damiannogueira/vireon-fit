@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { Trophy, Flame, Target, Zap, Dumbbell, Star, Clock, TrendingUp } from "lucide-react";
+import { Trophy, Flame, Target, Zap, Dumbbell, Star, Clock, TrendingUp, Sparkles } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { AchievementBadge } from "@/components/AchievementBadge";
 import { XPBar } from "@/components/XPBar";
 import { WeeklyChallenge } from "@/components/WeeklyChallenge";
+import { EmptyState } from "@/components/EmptyState";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -130,6 +131,8 @@ const Achievements = () => {
 
   const unlockedCount = displayAchievements.filter(a => a.unlocked).length;
 
+  const { locale } = useI18n();
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="px-6 pt-8">
@@ -147,6 +150,31 @@ const Achievements = () => {
             thisWeekWorkouts={thisWeekWorkouts}
           />
         </motion.div>
+
+        {/* Welcome message for new users */}
+        {unlockedCount === 0 && (workoutCount || 0) === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-achievement/10 border border-primary/20"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground mb-0.5">
+                  {locale === "es" ? "¡Tu aventura empieza acá!" : "Your adventure starts here!"}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {locale === "es"
+                    ? "Completá entrenamientos para desbloquear logros, ganar XP y subir de nivel. Cada badge representa un hito en tu progreso."
+                    : "Complete workouts to unlock achievements, earn XP and level up. Each badge represents a milestone in your progress."}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Badges Grid */}
         <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.achievements.badges}</h2>

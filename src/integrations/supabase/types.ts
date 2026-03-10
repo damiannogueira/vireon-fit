@@ -801,6 +801,19 @@ export type Database = {
         Args: { _gym_id: string; _user_id: string }
         Returns: undefined
       }
+      get_gym_member_stats: {
+        Args: { _gym_id: string }
+        Returns: {
+          cycle_count: number
+          display_name: string
+          last_workout_at: string
+          level: number
+          streak_days: number
+          user_id: string
+          workout_count_week: number
+          xp: number
+        }[]
+      }
       get_profile_id_from_auth: { Args: never; Returns: string }
       get_user_gym_id: { Args: { _user_id: string }; Returns: string }
       has_role: {

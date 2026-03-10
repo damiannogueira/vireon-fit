@@ -22,7 +22,7 @@ export function AssignedRoutines() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { locale } = useI18n();
-  const { isIndividual } = useUserRole();
+  const { isIndividual, isGymMember, gymName } = useUserRole();
   
 
   // Fetch user's fitness goal and gender for pre-selection
@@ -164,22 +164,40 @@ export function AssignedRoutines() {
     return (
       <div className="text-center py-12">
         <Dumbbell className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-        <p className="text-muted-foreground text-sm">
-          {!isIndividual
+        <p className="text-muted-foreground text-sm mb-2">
+          {isGymMember
             ? (locale === "es" ? "Tu gym aún no te asignó rutinas" : "Your gym hasn't assigned routines yet")
-            : (locale === "es" ? "No hay rutinas disponibles todavía" : "No routines available yet")}
+            : (locale === "es" ? "No hay rutinas disponibles para tu objetivo" : "No routines available for your goal")}
         </p>
+        {isIndividual && (
+          <p className="text-xs text-muted-foreground/70">
+            {locale === "es" ? "Cambiá tu objetivo desde Perfil para ver otras rutinas" : "Change your goal from Profile to see other routines"}
+          </p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-display font-bold text-foreground">
-        {!isIndividual
-          ? (locale === "es" ? "Mis Rutinas Asignadas" : "My Assigned Routines")
-          : (locale === "es" ? "Rutinas Disponibles" : "Available Routines")}
-      </h2>
+      {/* Clear header showing mode */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-display font-bold text-foreground">
+          {isGymMember
+            ? (locale === "es" ? `Rutinas de ${gymName || "tu gimnasio"}` : `${gymName || "Your gym"}'s Routines`)
+            : (locale === "es" ? "Catálogo Global" : "Global Catalog")}
+        </h2>
+        {isGymMember && (
+          <span className="text-xs px-2 py-1 rounded-full bg-achievement/10 text-achievement font-medium">
+            🏋️ Gym
+          </span>
+        )}
+        {isIndividual && (
+          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+            🏃 Individual
+          </span>
+        )}
+      </div>
 
       {/* No filter chips - routines are auto-filtered by user's goal */}
 

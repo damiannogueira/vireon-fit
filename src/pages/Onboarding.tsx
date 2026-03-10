@@ -144,7 +144,10 @@ const Onboarding = () => {
     <div className="min-h-screen bg-background flex flex-col px-6 py-8">
       {/* Progress */}
       <div className="flex items-center gap-3 mb-8">
-        <button onClick={prev} className={cn("text-muted-foreground hover:text-foreground transition-colors", step === 0 && "invisible")}>
+        <button 
+          onClick={() => step === 0 ? navigate(-1) : prev()} 
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
           <ChevronLeft className="w-6 h-6" />
         </button>
         <div className="flex-1 flex gap-1.5">
