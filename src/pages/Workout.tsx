@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, SkipForward, Check, Timer, Loader2, Lock } from "lucide-react";
+import { ChevronLeft, SkipForward, Check, Timer, Loader2, Lock, Dumbbell } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { XPBar } from "@/components/XPBar";
@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { AssignedRoutines } from "@/components/AssignedRoutines";
 import { ProUpsell } from "@/components/ProUpsell";
 import { useI18n } from "@/i18n";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, FREE_LIMITS } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +39,7 @@ const Workout = () => {
   const { workoutId } = useParams<{ workoutId: string }>();
   const { t, locale } = useI18n();
   const { user } = useAuth();
+  const { isGymAdmin } = useUserRole();
   const { isPro } = useSubscription();
   const queryClient = useQueryClient();
   const startedAt = useRef(new Date().toISOString());
@@ -127,18 +129,34 @@ const Workout = () => {
       const completedSetsCount = activeExercises.reduce((a, e) => a + e.sets.filter(s => s.completed).length, 0);
       const xpEarned = completedSetsCount * XP_PER_SET;
       const now = new Date().toISOString();
-      // Use the workout's estimated_duration instead of real elapsed time
       const durationMinutes = workout?.estimated_duration || Math.max(1, Math.round((new Date(now).getTime() - new Date(startedAt.current).getTime()) / 60000));
 
-      const { error: logError } = await supabase.from("workout_logs").insert({
+      const { data: logData, error: logError } = await supabase.from("workout_logs").insert({
         user_id: user.id,
         workout_id: workoutId || null,
         started_at: startedAt.current,
         completed_at: now,
         duration_minutes: durationMinutes,
         xp_earned: xpEarned,
-      });
+      }).select("id").single();
       if (logError) throw logError;
+
+      // Save per-exercise detail logs
+      const exerciseLogs = activeExercises
+        .filter(e => e.sets.some(s => s.completed))
+        .map(e => {
+          const completedSets = e.sets.filter(s => s.completed);
+          return {
+            workout_log_id: logData.id,
+            exercise_name: e.name,
+            sets_completed: completedSets.length,
+            reps_per_set: completedSets.map(s => s.reps),
+            weight_per_set: completedSets.map(s => s.weight),
+          };
+        });
+      if (exerciseLogs.length > 0) {
+        await supabase.from("workout_exercise_logs").insert(exerciseLogs);
+      }
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -196,6 +214,29 @@ const Workout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Gym admins cannot train — workouts are for members
+  if (isGymAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center gap-4">
+        <Dumbbell className="w-12 h-12 text-muted-foreground opacity-50" />
+        <h2 className="text-xl font-bold text-foreground">
+          {locale === "es" ? "Rutina para alumnos" : "Member-only workout"}
+        </h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          {locale === "es"
+            ? "Como administrador del gimnasio, las rutinas están diseñadas para tus alumnos. Podés asignarlas desde el panel de coach."
+            : "As a gym admin, workouts are designed for your members. You can assign them from the coach dashboard."}
+        </p>
+        <button
+          onClick={() => navigate("/gym/dashboard")}
+          className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          {locale === "es" ? "Ir al panel coach" : "Go to coach dashboard"}
+        </button>
       </div>
     );
   }

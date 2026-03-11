@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Dumbbell, Play, ChevronRight, Building2, Users, ClipboardList, CreditCard, Target, Lock, Ruler, Check, Trophy, RefreshCw, ChevronDown, BarChart3 } from "lucide-react";
 import { GoalChanger } from "@/components/GoalChanger";
 import { WeeklyChallenge } from "@/components/WeeklyChallenge";
+import { WorkoutHistory } from "@/components/WorkoutHistory";
 import { BottomNav } from "@/components/BottomNav";
 import { XPBar } from "@/components/XPBar";
 import { LevelBadge } from "@/components/LevelBadge";
@@ -750,6 +751,11 @@ const Dashboard = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Workout History */}
+      <div className="px-6 mb-6">
+        <WorkoutHistory />
       </div>
 
       {/* Weekly Challenge */}

@@ -637,6 +637,44 @@ export type Database = {
           },
         ]
       }
+      workout_exercise_logs: {
+        Row: {
+          created_at: string
+          exercise_name: string
+          id: string
+          reps_per_set: number[]
+          sets_completed: number
+          weight_per_set: number[]
+          workout_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_name: string
+          id?: string
+          reps_per_set?: number[]
+          sets_completed?: number
+          weight_per_set?: number[]
+          workout_log_id: string
+        }
+        Update: {
+          created_at?: string
+          exercise_name?: string
+          id?: string
+          reps_per_set?: number[]
+          sets_completed?: number
+          weight_per_set?: number[]
+          workout_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercise_logs_workout_log_id_fkey"
+            columns: ["workout_log_id"]
+            isOneToOne: false
+            referencedRelation: "workout_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_exercises: {
         Row: {
           default_weight: number | null
