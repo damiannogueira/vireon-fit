@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Crown, Building2, Sparkles, Zap, Gift, Users } from "lucide-react";
+import { ArrowLeft, Check, Crown, Sparkles, Zap, Gift, Users } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,7 +9,7 @@ interface Plan {
   id: string;
   name: string;
   description: string;
-  target: "individual" | "gym";
+  target: "individual";
   interval: string;
   price_usd: number;
   price_eur: number;
@@ -23,7 +23,7 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { t, formatPrice, currency, setCurrency } = useI18n();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [tab, setTab] = useState<"individual" | "gym">("individual");
+  const [tab] = useState<"individual">("individual");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ const Pricing = () => {
         setPlans(data.map(p => ({
           ...p,
           features: (p.features as string[]) || [],
-          target: p.target as "individual" | "gym",
+          target: p.target as "individual",
         })));
       }
       setLoading(false);
@@ -93,28 +93,6 @@ const Pricing = () => {
       <div className="px-4 pt-6">
         {/* Subtitle */}
         <p className="text-muted-foreground text-sm text-center mb-6">{t.pricing.subtitle}</p>
-
-        {/* Tab toggle */}
-        <div className="flex bg-secondary rounded-xl p-1 mb-6">
-          <button
-            onClick={() => setTab("individual")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-              tab === "individual" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground"
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            {t.pricing.individualPlans}
-          </button>
-          <button
-            onClick={() => setTab("gym")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-              tab === "gym" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground"
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            {t.pricing.gymPlans}
-          </button>
-        </div>
 
         {/* Plans */}
         {loading ? (

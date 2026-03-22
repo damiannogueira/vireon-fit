@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, Building2, Users, UserCog, CreditCard, ArrowLeft } from "lucide-react";
+import { Shield, Users, UserCog, CreditCard, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +8,6 @@ import { useI18n } from "@/i18n";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { AdminGymsTab } from "@/components/admin/AdminGymsTab";
 import { AdminUsersTab } from "@/components/admin/AdminUsersTab";
 import { AdminRolesTab } from "@/components/admin/AdminRolesTab";
 import { AdminSubscriptionsTab } from "@/components/admin/AdminSubscriptionsTab";
@@ -27,15 +26,6 @@ const AdminPanel = () => {
     };
     checkRole();
   }, [user]);
-
-  const { data: gyms } = useQuery({
-    queryKey: ["admin-gyms"],
-    queryFn: async () => {
-      const { data } = await supabase.from("gyms").select("*").order("created_at", { ascending: false });
-      return data || [];
-    },
-    enabled: isAdmin === true,
-  });
 
   const { data: profiles } = useQuery({
     queryKey: ["admin-profiles"],
@@ -104,9 +94,8 @@ const AdminPanel = () => {
           <h1 className="text-2xl font-display font-bold text-foreground">{t.admin.title}</h1>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-3 mb-8">
           {[
-            { label: t.admin.totalGyms, value: gyms?.length || 0, icon: Building2, color: "text-energy" },
             { label: t.admin.totalUsers, value: profiles?.length || 0, icon: Users, color: "text-primary" },
             { label: t.admin.activeSubscriptions, value: activeSubsCount, icon: CreditCard, color: "text-achievement" },
             { label: t.admin.roles, value: roles?.length || 0, icon: UserCog, color: "text-level" },
@@ -120,17 +109,13 @@ const AdminPanel = () => {
           ))}
         </div>
 
-        <Tabs defaultValue="gyms">
-          <TabsList className="w-full grid grid-cols-4 mb-6">
-            <TabsTrigger value="gyms" className="text-xs md:text-sm">{t.admin.gyms}</TabsTrigger>
+        <Tabs defaultValue="users">
+          <TabsList className="w-full grid grid-cols-3 mb-6">
             <TabsTrigger value="users" className="text-xs md:text-sm">{t.admin.users}</TabsTrigger>
             <TabsTrigger value="roles" className="text-xs md:text-sm">{t.admin.roles}</TabsTrigger>
             <TabsTrigger value="subscriptions" className="text-xs md:text-sm">{t.admin.subscriptions}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="gyms">
-            <AdminGymsTab gyms={gyms} />
-          </TabsContent>
           <TabsContent value="users">
             <AdminUsersTab profiles={profiles} />
           </TabsContent>

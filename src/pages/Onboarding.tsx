@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, Target, Zap, Calendar, Clock, Dumbbell, User, Ruler } from "lucide-react";
+import { ChevronRight, ChevronLeft, Target, Zap, Calendar, Clock, Dumbbell, User, Ruler, Cake } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,8 @@ const GOAL_MAP: Record<Goal, string> = {
 
 interface OnboardingData {
   gender: Gender | null;
+  birthYear: number;
+  birthMonth: number;
   height: number;
   weight: number;
   goal: Goal | null;
@@ -36,6 +38,8 @@ interface OnboardingData {
   equipment: string[];
 }
 
+const currentYear = new Date().getFullYear();
+
 const Onboarding = () => {
   const navigate = useNavigate();
   const { t, locale } = useI18n();
@@ -44,6 +48,8 @@ const Onboarding = () => {
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<OnboardingData>({
     gender: null,
+    birthYear: 1995,
+    birthMonth: 1,
     height: 170,
     weight: 70,
     goal: null,
@@ -77,12 +83,14 @@ const Onboarding = () => {
     t.onboarding.bodyweight, t.onboarding.bands, t.onboarding.kettlebell, t.onboarding.trx,
   ];
 
-  const totalSteps = 7;
+  const totalSteps = 8;
 
   const saveOnboarding = async () => {
     if (!user || !data.goal || !data.level || !data.gender) return;
     setSaving(true);
     try {
+      const birthDate = `${data.birthYear}-${String(data.birthMonth).padStart(2, "0")}-15`;
+
       await supabase
         .from("onboarding_progress")
         .update({
@@ -101,7 +109,8 @@ const Onboarding = () => {
           gender: data.gender,
           height_cm: data.height,
           weight_kg: data.weight,
-        })
+          birth_date: birthDate,
+        } as any)
         .eq("user_id", user.id);
 
       navigate("/dashboard");
@@ -130,12 +139,13 @@ const Onboarding = () => {
   const canProceed = () => {
     switch (step) {
       case 0: return !!data.gender;
-      case 1: return data.height >= 100 && data.height <= 250 && data.weight >= 30 && data.weight <= 300;
-      case 2: return !!data.goal;
-      case 3: return !!data.level;
-      case 4: return data.days >= 2;
-      case 5: return data.duration >= 20;
-      case 6: return data.equipment.length > 0;
+      case 1: return data.birthYear >= 1930 && data.birthYear <= currentYear - 12;
+      case 2: return data.height >= 100 && data.height <= 250 && data.weight >= 30 && data.weight <= 300;
+      case 3: return !!data.goal;
+      case 4: return !!data.level;
+      case 5: return data.days >= 2;
+      case 6: return data.duration >= 20;
+      case 7: return data.equipment.length > 0;
       default: return true;
     }
   };
@@ -199,8 +209,56 @@ const Onboarding = () => {
             </div>
           )}
 
-          {/* Step 1: Height & Weight */}
+          {/* Step 1: Birth Date */}
           {step === 1 && (
+            <div>
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">
+                <Cake className="inline w-6 h-6 text-primary mr-2" />
+                {locale === "es" ? "¿Cuándo naciste?" : "When were you born?"}
+              </h2>
+              <p className="text-muted-foreground text-sm mb-8">
+                {locale === "es" ? "Tu edad nos ayuda a personalizar la intensidad y el tipo de ejercicios" : "Your age helps us personalize intensity and exercise types"}
+              </p>
+              <div className="space-y-8">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-3 block">
+                    {locale === "es" ? "Año de nacimiento" : "Birth year"}
+                  </label>
+                  <div className="flex items-center justify-center gap-6">
+                    <button
+                      onClick={() => setData(d => ({ ...d, birthYear: Math.max(1930, d.birthYear - 1) }))}
+                      className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
+                    >-</button>
+                    <div className="text-center">
+                      <span className="text-5xl font-display font-black text-primary text-glow-primary">{data.birthYear}</span>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {currentYear - data.birthYear} {locale === "es" ? "años" : "years"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setData(d => ({ ...d, birthYear: Math.min(currentYear - 12, d.birthYear + 1) }))}
+                      className="w-12 h-12 rounded-xl bg-secondary text-foreground flex items-center justify-center text-2xl font-bold hover:bg-secondary/80"
+                    >+</button>
+                  </div>
+                </div>
+                <div className="flex justify-center gap-2 flex-wrap">
+                  {[1990, 1995, 2000, 2005].map(y => (
+                    <button
+                      key={y}
+                      onClick={() => setData(d => ({ ...d, birthYear: y }))}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                        data.birthYear === y ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                      )}
+                    >{y}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Height & Weight */}
+          {step === 2 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Ruler className="inline w-6 h-6 text-primary mr-2" />
@@ -247,7 +305,7 @@ const Onboarding = () => {
           )}
 
           {/* Step 2: Goal */}
-          {step === 2 && (
+          {step === 3 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Target className="inline w-6 h-6 text-primary mr-2" />
@@ -278,7 +336,7 @@ const Onboarding = () => {
           )}
 
           {/* Step 3: Level */}
-          {step === 3 && (
+          {step === 4 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Zap className="inline w-6 h-6 text-primary mr-2" />
@@ -309,7 +367,7 @@ const Onboarding = () => {
           )}
 
           {/* Step 4: Days */}
-          {step === 4 && (
+          {step === 5 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Calendar className="inline w-6 h-6 text-primary mr-2" />
@@ -346,7 +404,7 @@ const Onboarding = () => {
           )}
 
           {/* Step 5: Duration */}
-          {step === 5 && (
+          {step === 6 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Clock className="inline w-6 h-6 text-primary mr-2" />
@@ -373,7 +431,7 @@ const Onboarding = () => {
           )}
 
           {/* Step 6: Equipment */}
-          {step === 6 && (
+          {step === 7 && (
             <div>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                 <Dumbbell className="inline w-6 h-6 text-primary mr-2" />

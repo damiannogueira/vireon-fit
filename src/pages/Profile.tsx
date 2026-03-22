@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Crown, Dumbbell, Globe, LogOut, CreditCard, Building2, Pencil, Check, X } from "lucide-react";
+import { Crown, Dumbbell, Globe, LogOut, CreditCard, Pencil, Check, X } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { BottomNav } from "@/components/BottomNav";
 import { LevelBadge } from "@/components/LevelBadge";
@@ -12,7 +12,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUserRole } from "@/hooks/useUserRole";
 import { useSubscription } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,7 +24,6 @@ const Profile = () => {
   const { t, locale, setLocale } = useI18n();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { isGymAdmin, gymId, isIndividual } = useUserRole();
   const { isPro } = useSubscription();
   const queryClient = useQueryClient();
 
@@ -64,21 +62,6 @@ const Profile = () => {
     enabled: !!user,
   });
 
-  const currentMonth = new Date().toISOString().slice(0, 7) + "-01";
-  const { data: myPayment } = useQuery({
-    queryKey: ["my-payment", user?.id, currentMonth],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("gym_payments")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("period_month", currentMonth)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!user && !isGymAdmin && !isIndividual,
-  });
-
   const { data: onboardingGoal } = useQuery({
     queryKey: ["profile-onboarding", user?.id],
     queryFn: async () => {
@@ -89,20 +72,7 @@ const Profile = () => {
         .maybeSingle();
       return data?.fitness_goal || null;
     },
-    enabled: !!user && !isGymAdmin,
-  });
-
-  const { data: myGym } = useQuery({
-    queryKey: ["my-gym-name", profile?.gym_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("gyms")
-        .select("name")
-        .eq("id", profile!.gym_id!)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!profile?.gym_id && !isGymAdmin,
+    enabled: !!user,
   });
 
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "—";
@@ -179,8 +149,6 @@ const Profile = () => {
     }
   };
 
-  const monthLabel = new Date().toLocaleString(locale === "es" ? "es-AR" : "en-US", { month: "long", year: "numeric" });
-
   const hoursLabel = workoutStats?.totalHours
     ? workoutStats.totalHours < 1
       ? `${workoutStats.totalMinutes || 0} min`
@@ -202,7 +170,6 @@ const Profile = () => {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/50 mb-6"
         >
-          {/* Avatar */}
           <button
             onClick={() => {
               if (isPro) setShowAvatarPicker(!showAvatarPicker);
@@ -210,12 +177,10 @@ const Profile = () => {
             }}
             className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center border border-primary/20 relative group"
           >
-            <span className="text-2xl">{isGymAdmin ? "🏋️" : avatarEmoji}</span>
-            {!isGymAdmin && (
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center">
-                {isPro ? <Pencil className="w-2.5 h-2.5 text-muted-foreground" /> : <Crown className="w-2.5 h-2.5 text-achievement" />}
-              </div>
-            )}
+            <span className="text-2xl">{avatarEmoji}</span>
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center">
+              {isPro ? <Pencil className="w-2.5 h-2.5 text-muted-foreground" /> : <Crown className="w-2.5 h-2.5 text-achievement" />}
+            </div>
           </button>
           <div className="flex-1">
             {editingName ? (
@@ -243,7 +208,7 @@ const Profile = () => {
             )}
             <p className="text-sm text-muted-foreground">{user?.email || "—"}</p>
           </div>
-          {!isGymAdmin && <LevelBadge level={level} className="w-12 h-12" />}
+          <LevelBadge level={level} className="w-12 h-12" />
         </motion.div>
 
         {/* Avatar Picker (Pro only) */}
@@ -275,46 +240,16 @@ const Profile = () => {
           </motion.div>
         )}
 
-        {/* Gym membership info for students */}
-        {!isGymAdmin && myGym && (
-          <div className="p-4 rounded-2xl bg-card border border-border/50 mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Building2 className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-foreground text-sm">{myGym.name}</h3>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/50">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-foreground capitalize">{monthLabel}</span>
-              </div>
-              <span className={cn(
-                "text-xs font-semibold px-2 py-0.5 rounded-full",
-                myPayment?.is_paid
-                  ? "bg-primary/10 text-primary"
-                  : "bg-destructive/10 text-destructive"
-              )}>
-                {myPayment?.is_paid
-                  ? (locale === "es" ? "✓ Al día" : "✓ Paid")
-                  : (locale === "es" ? "✗ Pendiente" : "✗ Pending")}
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Goal Changer */}
-        {!isGymAdmin && (
-          <div className="mb-6">
-            <GoalChanger currentGoal={onboardingGoal || null} />
-          </div>
-        )}
+        <div className="mb-6">
+          <GoalChanger currentGoal={onboardingGoal || null} />
+        </div>
 
         {/* XP */}
-        {!isGymAdmin && (
-          <div className="p-4 rounded-2xl bg-card border border-border/50 mb-6">
-            <XPBar current={xpInLevel} max={XP_PER_LEVEL} label={t.profile.levelTo.replace("{from}", String(level)).replace("{to}", String(level + 1))} variant="xp" />
-            <p className="text-xs text-muted-foreground mt-2">{t.profile.totalXP}: {xp.toLocaleString()}</p>
-          </div>
-        )}
+        <div className="p-4 rounded-2xl bg-card border border-border/50 mb-6">
+          <XPBar current={xpInLevel} max={XP_PER_LEVEL} label={t.profile.levelTo.replace("{from}", String(level)).replace("{to}", String(level + 1))} variant="xp" />
+          <p className="text-xs text-muted-foreground mt-2">{t.profile.totalXP}: {xp.toLocaleString()}</p>
+        </div>
 
         {/* Plan */}
         <div className="p-4 rounded-2xl bg-gradient-to-r from-achievement/10 to-transparent border border-achievement/20 mb-6">
@@ -366,147 +301,129 @@ const Profile = () => {
         <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.profile.settings}</h2>
         <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
           {/* Fitness level */}
-          {!isGymAdmin && (
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-              <span className="text-sm text-foreground">{t.profile.level}</span>
-              <span className="text-sm text-muted-foreground">{fitnessLabel(fitnessLevel)}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
+            <span className="text-sm text-foreground">{t.profile.level}</span>
+            <span className="text-sm text-muted-foreground">{fitnessLabel(fitnessLevel)}</span>
+          </div>
 
           {/* Gender - editable */}
-          {!isGymAdmin && (
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-              <span className="text-sm text-foreground">{locale === "es" ? "Sexo" : "Sex"}</span>
-              {editingField === "gender" ? (
-                <div className="flex items-center gap-1">
-                  {(["male", "female", "other"] as const).map(g => (
-                    <button
-                      key={g}
-                      onClick={() => handleSaveField("gender", g)}
-                      className={cn(
-                        "px-2 py-1 text-xs rounded-lg border transition-all",
-                        profile?.gender === g
-                          ? "bg-primary/20 border-primary text-primary"
-                          : "border-border/50 text-muted-foreground hover:border-primary/30"
-                      )}
-                    >
-                      {g === "male" ? (locale === "es" ? "H" : "M") : g === "female" ? (locale === "es" ? "M" : "F") : (locale === "es" ? "Otro" : "Other")}
-                    </button>
-                  ))}
-                  <button onClick={() => setEditingField(null)} className="text-muted-foreground ml-1"><X className="w-3.5 h-3.5" /></button>
-                </div>
-              ) : (
-                <button onClick={() => setEditingField("gender")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-                  <span>{profile?.gender === "male" ? (locale === "es" ? "Hombre" : "Male") : profile?.gender === "female" ? (locale === "es" ? "Mujer" : "Female") : profile?.gender === "other" ? (locale === "es" ? "Otro" : "Other") : "—"}</span>
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
+            <span className="text-sm text-foreground">{locale === "es" ? "Sexo" : "Sex"}</span>
+            {editingField === "gender" ? (
+              <div className="flex items-center gap-1">
+                {(["male", "female", "other"] as const).map(g => (
+                  <button
+                    key={g}
+                    onClick={() => handleSaveField("gender", g)}
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg border transition-all",
+                      profile?.gender === g
+                        ? "bg-primary/20 border-primary text-primary"
+                        : "border-border/50 text-muted-foreground hover:border-primary/30"
+                    )}
+                  >
+                    {g === "male" ? (locale === "es" ? "H" : "M") : g === "female" ? (locale === "es" ? "M" : "F") : (locale === "es" ? "Otro" : "Other")}
+                  </button>
+                ))}
+                <button onClick={() => setEditingField(null)} className="text-muted-foreground ml-1"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingField("gender")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+                <span>{profile?.gender === "male" ? (locale === "es" ? "Hombre" : "Male") : profile?.gender === "female" ? (locale === "es" ? "Mujer" : "Female") : profile?.gender === "other" ? (locale === "es" ? "Otro" : "Other") : "—"}</span>
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+          </div>
 
           {/* Height - editable */}
-          {!isGymAdmin && (
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-              <span className="text-sm text-foreground">{locale === "es" ? "Altura" : "Height"}</span>
-              {editingField === "height_cm" ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    autoFocus
-                    type="number"
-                    value={fieldValue}
-                    onChange={(e) => setFieldValue(e.target.value)}
-                    className="w-16 h-7 px-2 rounded-lg bg-secondary border border-border/50 text-sm text-foreground text-right focus:border-primary focus:outline-none"
-                    placeholder="170"
-                  />
-                  <span className="text-xs text-muted-foreground">cm</span>
-                  <button onClick={() => handleSaveField("height_cm", fieldValue)} className="text-primary"><Check className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setEditingField(null)} className="text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
-                </div>
-              ) : (
-                <button onClick={() => { setFieldValue(String(profile?.height_cm || "")); setEditingField("height_cm"); }} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-                  <span>{profile?.height_cm ? `${profile.height_cm} cm` : "—"}</span>
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
+            <span className="text-sm text-foreground">{locale === "es" ? "Altura" : "Height"}</span>
+            {editingField === "height_cm" ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="number"
+                  value={fieldValue}
+                  onChange={(e) => setFieldValue(e.target.value)}
+                  className="w-16 h-7 px-2 rounded-lg bg-secondary border border-border/50 text-sm text-foreground text-right focus:border-primary focus:outline-none"
+                  placeholder="170"
+                />
+                <span className="text-xs text-muted-foreground">cm</span>
+                <button onClick={() => handleSaveField("height_cm", fieldValue)} className="text-primary"><Check className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setEditingField(null)} className="text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <button onClick={() => { setFieldValue(String(profile?.height_cm || "")); setEditingField("height_cm"); }} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+                <span>{profile?.height_cm ? `${profile.height_cm} cm` : "—"}</span>
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+          </div>
 
           {/* Weight - editable */}
-          {!isGymAdmin && (
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-              <span className="text-sm text-foreground">{locale === "es" ? "Peso" : "Weight"}</span>
-              {editingField === "weight_kg" ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    autoFocus
-                    type="number"
-                    value={fieldValue}
-                    onChange={(e) => setFieldValue(e.target.value)}
-                    className="w-16 h-7 px-2 rounded-lg bg-secondary border border-border/50 text-sm text-foreground text-right focus:border-primary focus:outline-none"
-                    placeholder="70"
-                  />
-                  <span className="text-xs text-muted-foreground">kg</span>
-                  <button onClick={() => handleSaveField("weight_kg", fieldValue)} className="text-primary"><Check className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setEditingField(null)} className="text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
-                </div>
-              ) : (
-                <button onClick={() => { setFieldValue(String(profile?.weight_kg || "")); setEditingField("weight_kg"); }} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-                  <span>{profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}</span>
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
+            <span className="text-sm text-foreground">{locale === "es" ? "Peso" : "Weight"}</span>
+            {editingField === "weight_kg" ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="number"
+                  value={fieldValue}
+                  onChange={(e) => setFieldValue(e.target.value)}
+                  className="w-16 h-7 px-2 rounded-lg bg-secondary border border-border/50 text-sm text-foreground text-right focus:border-primary focus:outline-none"
+                  placeholder="70"
+                />
+                <span className="text-xs text-muted-foreground">kg</span>
+                <button onClick={() => handleSaveField("weight_kg", fieldValue)} className="text-primary"><Check className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setEditingField(null)} className="text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <button onClick={() => { setFieldValue(String(profile?.weight_kg || "")); setEditingField("weight_kg"); }} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+                <span>{profile?.weight_kg ? `${profile.weight_kg} kg` : "—"}</span>
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+          </div>
 
           {/* Read-only stats */}
-          {!isGymAdmin && (
-            <>
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-                <span className="text-sm text-foreground">{locale === "es" ? "Racha" : "Streak"}</span>
-                <span className="text-sm text-muted-foreground">{profile?.streak_days || 0} {t.common.days}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-                <span className="text-sm text-foreground">Workouts</span>
-                <span className="text-sm text-muted-foreground">{workoutStats?.totalWorkouts || 0}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
-                <span className="text-sm text-foreground">{locale === "es" ? "Tiempo entrenado" : "Training time"}</span>
-                <span className="text-sm text-muted-foreground">{hoursLabel}</span>
-              </div>
-            </>
-          )}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
+            <span className="text-sm text-foreground">{locale === "es" ? "Racha" : "Streak"}</span>
+            <span className="text-sm text-muted-foreground">{profile?.streak_days || 0} {t.common.days}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
+            <span className="text-sm text-foreground">Workouts</span>
+            <span className="text-sm text-muted-foreground">{workoutStats?.totalWorkouts || 0}</span>
+          </div>
           <div className="flex items-center justify-between px-4 py-3.5">
-            <span className="text-sm text-foreground">{locale === "es" ? "Rol" : "Role"}</span>
-            <span className="text-sm text-muted-foreground">{isGymAdmin ? "Gym Admin" : isIndividual ? (locale === "es" ? "Particular" : "Individual") : (locale === "es" ? "Alumno" : "Member")}</span>
+            <span className="text-sm text-foreground">{locale === "es" ? "Tiempo entrenado" : "Training time"}</span>
+            <span className="text-sm text-muted-foreground">{hoursLabel}</span>
           </div>
         </div>
 
         {/* Training Info */}
-        {!isGymAdmin && (
-          <div className="mt-6 p-4 rounded-2xl bg-card border border-border/50">
-            <div className="flex items-center gap-2 mb-3">
-              <Dumbbell className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-foreground">{t.profile.myRoutine}</h3>
+        <div className="mt-6 p-4 rounded-2xl bg-card border border-border/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Dumbbell className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-foreground">{t.profile.myRoutine}</h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">{t.profile.totalXP}</span>
+              <span className="text-sm font-medium text-xp">{xp.toLocaleString()} XP</span>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">{t.profile.totalXP}</span>
-                <span className="text-sm font-medium text-xp">{xp.toLocaleString()} XP</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">{locale === "es" ? "Racha actual" : "Current streak"}</span>
-                <span className="text-sm font-medium text-achievement">{profile?.streak_days || 0} {t.common.days}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">{locale === "es" ? "Horas entrenadas" : "Training hours"}</span>
-                <span className="text-sm font-medium text-primary">{hoursLabel}</span>
-              </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">{locale === "es" ? "Racha actual" : "Current streak"}</span>
+              <span className="text-sm font-medium text-achievement">{profile?.streak_days || 0} {t.common.days}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">{locale === "es" ? "Horas entrenadas" : "Training hours"}</span>
+              <span className="text-sm font-medium text-primary">{hoursLabel}</span>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Pro Upsell for free users */}
-        {!isPro && !isGymAdmin && (
+        {!isPro && (
           <div className="mt-6">
             <ProUpsell message={locale === "es" ? "Avatar personalizado, días ilimitados y más" : "Custom avatar, unlimited days and more"} />
           </div>

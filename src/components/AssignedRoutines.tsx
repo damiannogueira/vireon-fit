@@ -5,27 +5,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
-import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
-import { useEffect } from "react";
-
-const GOAL_FILTERS = [
-  { key: "all", es: "Todas", en: "All" },
-  { key: "hipertrofia", es: "💪 Hipertrofia", en: "💪 Hypertrophy" },
-  { key: "fuerza", es: "🏋️ Fuerza", en: "🏋️ Strength" },
-  { key: "perdida_grasa", es: "⚡ Quema grasa", en: "⚡ Fat Loss" },
-  { key: "movilidad", es: "🧘 Movilidad", en: "🧘 Mobility" },
-  { key: "general", es: "🎯 General", en: "🎯 General" },
-];
 
 export function AssignedRoutines() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { locale } = useI18n();
-  const { isIndividual, isGymMember, gymName } = useUserRole();
-  
 
-  // Fetch user's fitness goal and gender for pre-selection
+  // Fetch user's fitness goal and gender
   const { data: userProfile } = useQuery({
     queryKey: ["assigned-routines-profile", user?.id],
     queryFn: async () => {
@@ -41,37 +28,32 @@ export function AssignedRoutines() {
         .maybeSingle();
       return { fitnessGoal: data?.fitness_goal || null, gender: prof?.gender || null };
     },
-    enabled: !!user && isIndividual,
+    enabled: !!user,
   });
 
-  
-
-  // Assigned routines (gym members)
-  const { data: assignments, isLoading: assignLoading } = useQuery({
-    queryKey: ["my-assignments", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workout_assignments")
-        .select("id, notes, assigned_at, workout_id, workouts(id, name, description, estimated_duration, difficulty, goal_type, workout_exercises(id))")
-        .eq("user_id", user!.id)
-        .order("assigned_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user && !isIndividual,
-  });
-
-  // Global workouts (for individual users) - filtered by gender
+  // Personal + Global workouts
   const userGender = userProfile?.gender;
-  const { data: globalWorkouts, isLoading: globalLoading } = useQuery({
-    queryKey: ["global-workouts", userGender],
+  const { data: globalWorkouts, isLoading } = useQuery({
+    queryKey: ["global-workouts", userGender, user?.id],
     queryFn: async () => {
+      // First check for personal AI-generated workouts
+      const { data: personalWorkouts } = await supabase
+        .from("workouts")
+        .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
+        .eq("created_by", user!.id)
+        .eq("is_global", false)
+        .order("created_at");
+
+      if (personalWorkouts && personalWorkouts.length > 0) {
+        return personalWorkouts;
+      }
+
+      // Fallback to global
       let query = supabase
         .from("workouts")
         .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
         .eq("is_global", true)
         .order("name");
-      // Filter by gender: show unisex + user's gender
       if (userGender && userGender !== "other") {
         query = query.in("target_gender", [userGender, "unisex"]);
       }
@@ -79,7 +61,7 @@ export function AssignedRoutines() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user && isIndividual,
+    enabled: !!user,
   });
 
   // Recent workout logs
@@ -97,8 +79,6 @@ export function AssignedRoutines() {
     },
     enabled: !!user,
   });
-
-  const isLoading = assignLoading || globalLoading;
 
   const difficultyLabel = (d: string | null) => {
     const map: Record<string, string> = {
@@ -132,31 +112,19 @@ export function AssignedRoutines() {
     );
   }
 
-  // Build routines list
-  let routines = !isIndividual
-    ? (assignments || []).map(a => ({
-        id: (a.workouts as any)?.id,
-        name: (a.workouts as any)?.name || "—",
-        description: (a.workouts as any)?.description,
-        duration: (a.workouts as any)?.estimated_duration,
-        difficulty: (a.workouts as any)?.difficulty,
-        goalType: (a.workouts as any)?.goal_type,
-        exerciseCount: (a.workouts as any)?.workout_exercises?.length || 0,
-        notes: a.notes,
-      }))
-    : (globalWorkouts || []).map(w => ({
-        id: w.id,
-        name: w.name,
-        description: w.description,
-        duration: w.estimated_duration,
-        difficulty: w.difficulty,
-        goalType: (w as any).goal_type,
-        exerciseCount: w.workout_exercises?.length || 0,
-        notes: null,
-      }));
+  let routines = (globalWorkouts || []).map(w => ({
+    id: w.id,
+    name: w.name,
+    description: w.description,
+    duration: w.estimated_duration,
+    difficulty: w.difficulty,
+    goalType: (w as any).goal_type,
+    exerciseCount: w.workout_exercises?.length || 0,
+    notes: null,
+  }));
 
-  // For individual users: only show routines matching their goal
-  if (isIndividual && userProfile?.fitnessGoal) {
+  // Filter by user's goal
+  if (userProfile?.fitnessGoal) {
     routines = routines.filter(r => r.goalType === userProfile.fitnessGoal);
   }
 
@@ -165,47 +133,22 @@ export function AssignedRoutines() {
       <div className="text-center py-12">
         <Dumbbell className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
         <p className="text-muted-foreground text-sm mb-2">
-          {isGymMember
-            ? (locale === "es" ? "Tu gym aún no te asignó rutinas" : "Your gym hasn't assigned routines yet")
-            : (locale === "es" ? "No hay rutinas disponibles para tu objetivo" : "No routines available for your goal")}
+          {locale === "es" ? "No hay rutinas disponibles para tu objetivo" : "No routines available for your goal"}
         </p>
-        {isIndividual && (
-          <p className="text-xs text-muted-foreground/70">
-            {locale === "es" ? "Cambiá tu objetivo desde Perfil para ver otras rutinas" : "Change your goal from Profile to see other routines"}
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground/70">
+          {locale === "es" ? "Cambiá tu objetivo desde Perfil para ver otras rutinas" : "Change your goal from Profile to see other routines"}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Clear header showing mode */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-display font-bold text-foreground">
-          {isGymMember
-            ? (locale === "es" ? `Rutinas de ${gymName || "tu gimnasio"}` : `${gymName || "Your gym"}'s Routines`)
-            : (locale === "es" ? "Catálogo Global" : "Global Catalog")}
+          {locale === "es" ? "Catálogo de Rutinas" : "Routine Catalog"}
         </h2>
-        {isGymMember && (
-          <span className="text-xs px-2 py-1 rounded-full bg-achievement/10 text-achievement font-medium">
-            🏋️ Gym
-          </span>
-        )}
-        {isIndividual && (
-          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-            🏃 Individual
-          </span>
-        )}
       </div>
-
-      {/* No filter chips - routines are auto-filtered by user's goal */}
-
-      {routines.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-6">
-          {locale === "es" ? "No hay rutinas para tu objetivo actual" : "No routines for your current goal"}
-        </p>
-      )}
 
       {routines.map((r, i) => {
         const completions = getCompletionCount(r.id);
@@ -261,7 +204,6 @@ export function AssignedRoutines() {
           </motion.button>
         );
       })}
-
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { NotificationBell } from "@/components/NotificationBell";
 import { EmptyState } from "@/components/EmptyState";
-import { Dumbbell, Play, ChevronRight, Building2, Users, ClipboardList, CreditCard, Target, Lock, Ruler, Check, Trophy, RefreshCw, ChevronDown, BarChart3 } from "lucide-react";
+import { Dumbbell, Play, ChevronRight, Target, Lock, Ruler, Check, Trophy, RefreshCw, ChevronDown, Sparkles, Loader2 } from "lucide-react";
 import { GoalChanger } from "@/components/GoalChanger";
 import { WeeklyChallenge } from "@/components/WeeklyChallenge";
 import { WorkoutHistory } from "@/components/WorkoutHistory";
@@ -15,8 +15,10 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useUserRole } from "@/hooks/useUserRole";
 import { useSubscription, FREE_LIMITS } from "@/hooks/useSubscription";
+import { useSmartRoutineGenerator } from "@/hooks/useSmartRoutineGenerator";
+import { useWeeklyAdjustment } from "@/hooks/useWeeklyAdjustment";
+import { WeeklyAdjustmentCard } from "@/components/WeeklyAdjustmentCard";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -43,11 +45,12 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { t, locale } = useI18n();
   const { user } = useAuth();
-  const { isGymAdmin, gymId, gymName, isIndividual, isGymMember, isLoading: roleLoading } = useUserRole();
   const { isPro } = useSubscription();
   const queryClient = useQueryClient();
   const [resetting, setResetting] = useState(false);
   const [showCycleHistory, setShowCycleHistory] = useState(false);
+  const { generate: generateSmartRoutine, generating: generatingRoutine } = useSmartRoutineGenerator();
+  const { data: weeklyAdjustment } = useWeeklyAdjustment(user?.id);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["dashboard-profile", user?.id],
@@ -73,7 +76,7 @@ const Dashboard = () => {
         .maybeSingle();
       return data;
     },
-    enabled: !!user && !isGymAdmin,
+    enabled: !!user,
   });
 
   const { data: workoutStats } = useQuery({
@@ -97,14 +100,27 @@ const Dashboard = () => {
 
       return { totalWorkouts, totalHours, totalMinutes, thisWeekWorkouts };
     },
-    enabled: !!user && !isGymAdmin,
+    enabled: !!user,
   });
 
   const userGoal = onboarding?.fitness_goal || null;
   const userGender = profile?.gender || null;
   const { data: recommendedWorkouts } = useQuery({
-    queryKey: ["recommended-workouts", userGoal, userGender],
+    queryKey: ["recommended-workouts", userGoal, userGender, user?.id],
     queryFn: async () => {
+      // First check for personal AI-generated workouts
+      const { data: personalWorkouts } = await supabase
+        .from("workouts")
+        .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
+        .eq("created_by", user!.id)
+        .eq("is_global", false)
+        .order("created_at");
+
+      if (personalWorkouts && personalWorkouts.length > 0) {
+        return personalWorkouts;
+      }
+
+      // Fallback to global workouts
       let query = supabase
         .from("workouts")
         .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
@@ -118,7 +134,7 @@ const Dashboard = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userGoal,
+    enabled: !!userGoal && !!user,
   });
 
   const { data: recentLogs } = useQuery({
@@ -133,10 +149,9 @@ const Dashboard = () => {
         .limit(20);
       return data || [];
     },
-    enabled: !!user && !isGymAdmin,
+    enabled: !!user,
   });
 
-  // Cycle completions history
   const { data: cycleCompletions } = useQuery({
     queryKey: ["cycle-completions", user?.id],
     queryFn: async () => {
@@ -147,22 +162,7 @@ const Dashboard = () => {
         .order("completed_at", { ascending: false });
       return data || [];
     },
-    enabled: !!user && !isGymAdmin,
-  });
-
-  // Gym admin stats
-  const { data: gymStats } = useQuery({
-    queryKey: ["gym-admin-stats", gymId],
-    queryFn: async () => {
-      const { data: members } = await supabase.from("gym_members").select("id").eq("gym_id", gymId!).eq("is_active", true);
-      const { data: routines } = await supabase.from("workouts").select("id").eq("gym_id", gymId!);
-      const { data: gym } = await supabase.from("gyms").select("name").eq("id", gymId!).maybeSingle();
-      const currentMonth = new Date().toISOString().slice(0, 7) + "-01";
-      const { data: payments } = await supabase.from("gym_payments").select("is_paid").eq("gym_id", gymId!).eq("period_month", currentMonth);
-      const pendingPayments = (payments || []).filter(p => !p.is_paid).length;
-      return { memberCount: members?.length || 0, routineCount: routines?.length || 0, gymName: gym?.name || "", pendingPayments };
-    },
-    enabled: !!gymId && isGymAdmin,
+    enabled: !!user,
   });
 
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "—";
@@ -172,7 +172,7 @@ const Dashboard = () => {
   const xpInLevel = xp % XP_PER_LEVEL;
   const xpToNext = XP_PER_LEVEL;
 
-  if (profileLoading || roleLoading) {
+  if (profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -180,71 +180,6 @@ const Dashboard = () => {
     );
   }
 
-  // ========== GYM ADMIN DASHBOARD ==========
-  if (isGymAdmin) {
-    return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="px-6 pt-8 pb-4">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-sm text-muted-foreground">{t.dashboard.welcomeBack}</p>
-              <h1 className="text-2xl font-display font-bold text-foreground">{gymStats?.gymName || displayName}</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <NotificationBell />
-              <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
-              <span className="text-2xl font-bold text-foreground">{gymStats?.memberCount || 0}</span>
-              <p className="text-[10px] text-muted-foreground uppercase">{locale === "es" ? "Alumnos" : "Members"}</p>
-            </div>
-            <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
-              <span className="text-2xl font-bold text-foreground">{gymStats?.routineCount || 0}</span>
-              <p className="text-[10px] text-muted-foreground uppercase">{locale === "es" ? "Rutinas" : "Routines"}</p>
-            </div>
-            <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
-              <span className="text-2xl font-bold text-achievement">{gymStats?.pendingPayments || 0}</span>
-              <p className="text-[10px] text-muted-foreground uppercase">{locale === "es" ? "Cuotas pend." : "Pending"}</p>
-            </div>
-          </div>
-          <h2 className="text-lg font-display font-bold text-foreground mb-3">{locale === "es" ? "Acciones rápidas" : "Quick actions"}</h2>
-          <div className="space-y-2">
-            {[
-              { icon: BarChart3, label: locale === "es" ? "Panel Coach" : "Coach Dashboard", desc: locale === "es" ? "Monitoreo y seguimiento de alumnos" : "Member monitoring & engagement", action: () => navigate("/gym/dashboard") },
-              { icon: Users, label: locale === "es" ? "Gestionar alumnos" : "Manage members", desc: locale === "es" ? "Invitar, agregar y ver alumnos" : "Invite, add and view members", action: () => navigate("/gym") },
-              { icon: ClipboardList, label: locale === "es" ? "Rutinas" : "Routines", desc: locale === "es" ? "Crear y asignar rutinas" : "Create and assign routines", action: () => navigate("/gym") },
-              { icon: CreditCard, label: locale === "es" ? "Cuotas" : "Payments", desc: locale === "es" ? "Control de pagos mensuales" : "Monthly payment tracking", action: () => navigate("/gym") },
-            ].map((action, i) => (
-              <motion.button
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                onClick={action.action}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all text-left"
-              >
-                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <action.icon className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold text-foreground">{action.label}</span>
-                  <p className="text-xs text-muted-foreground">{action.desc}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </motion.button>
-            ))}
-          </div>
-        </div>
-        <BottomNav />
-      </div>
-    );
-  }
-
-  // ========== REGULAR USER / INDIVIDUAL DASHBOARD ==========
   const hasOnboarding = !!onboarding?.completed_at;
   const goalKey = userGoal || "general";
   const goalLabel = GOAL_LABELS[goalKey]?.[locale] || GOAL_LABELS.general[locale];
@@ -256,7 +191,6 @@ const Dashboard = () => {
   const generalWorkouts = workouts.filter(w => w.goal_type === "general");
   const orderedWorkouts = [...goalWorkouts, ...generalWorkouts];
 
-  // Free users see limited days
   const maxDays = isPro ? orderedWorkouts.length : Math.min(FREE_LIMITS.maxDaysInPlan, orderedWorkouts.length);
   const visibleWorkouts = orderedWorkouts.slice(0, maxDays);
   const hasLockedDays = !isPro && orderedWorkouts.length > FREE_LIMITS.maxDaysInPlan;
@@ -270,16 +204,12 @@ const Dashboard = () => {
   }
 
   const getCompletionCount = (workoutId: string) => recentLogs?.filter(l => l.workout_id === workoutId).length || 0;
-
-  // Check if all plan workouts are completed
   const allPlanCompleted = visibleWorkouts.length > 0 && visibleWorkouts.every(w => getCompletionCount(w.id) > 0);
-
 
   const handleRestartCycle = async () => {
     if (!user || resetting) return;
     setResetting(true);
     try {
-      // Calculate cycle stats before deleting logs
       const workoutIds = visibleWorkouts.map(w => w.id);
       const { data: cycleLogs } = await supabase
         .from("workout_logs")
@@ -291,7 +221,6 @@ const Dashboard = () => {
       const cycleXp = (cycleLogs || []).reduce((sum, l) => sum + (l.xp_earned || 0), 0);
       const cycleDuration = (cycleLogs || []).reduce((sum, l) => sum + (l.duration_minutes || 0), 0);
 
-      // Record cycle completion with stats
       await supabase.from("cycle_completions").insert({
         user_id: user.id,
         goal_type: goalKey || "general",
@@ -318,6 +247,18 @@ const Dashboard = () => {
     }
   };
 
+  const handleGenerateRoutine = async () => {
+    const result = await generateSmartRoutine();
+    if (result) {
+      toast.success(
+        locale === "es"
+          ? `🧠 ¡Plan "${result.plan_name}" generado con ${result.days?.length || 0} días!`
+          : `🧠 Plan "${result.plan_name}" generated with ${result.days?.length || 0} days!`
+      );
+      queryClient.invalidateQueries({ queryKey: ["recommended-workouts"] });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
@@ -333,50 +274,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Mode indicator - SUPER VISIBLE */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            "p-3 rounded-xl mb-6 flex items-center gap-3 border",
-            isIndividual 
-              ? "bg-primary/10 border-primary/30" 
-              : "bg-achievement/10 border-achievement/30"
-          )}
-        >
-          {isIndividual ? (
-            <>
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-foreground">
-                  {locale === "es" ? "🏃‍♂️ Modo Individual" : "🏃‍♂️ Individual Mode"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {locale === "es" ? "Entrenás por tu cuenta con rutinas globales" : "Training on your own with global routines"}
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="w-10 h-10 rounded-lg bg-achievement/20 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-achievement" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-foreground">
-                  {locale === "es" ? "🏋️ Miembro de Gym" : "🏋️ Gym Member"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {gymName || (locale === "es" ? "Entrenás con rutinas de tu gimnasio" : "Training with your gym's routines")}
-                </p>
-              </div>
-            </>
-          )}
-        </motion.div>
-
         {/* Personal Coach Message */}
-        {isIndividual && (() => {
+        {(() => {
           const totalW = workoutStats?.totalWorkouts || 0;
           const weekW = workoutStats?.thisWeekWorkouts || 0;
           const cycles = cycleCompletions?.length || 0;
@@ -466,6 +365,13 @@ const Dashboard = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Weekly Adjustment Card */}
+      {weeklyAdjustment && (
+        <div className="px-6 mb-6">
+          <WeeklyAdjustmentCard adjustment={weeklyAdjustment} locale={locale} />
+        </div>
+      )}
 
       {/* Goal Banner */}
       <div className="px-6 mb-6">
@@ -638,15 +544,38 @@ const Dashboard = () => {
                   ? "Completá tu configuración inicial para recibir un plan de entrenamiento personalizado."
                   : "Complete your initial setup to get a personalized training plan.")
                 : (locale === "es"
-                  ? "No encontramos rutinas para tu objetivo actual. Probá cambiar tu objetivo o explorá el catálogo."
-                  : "We couldn't find routines for your current goal. Try changing your goal or explore the catalog.")
+                  ? "Generá tu rutina personalizada con inteligencia artificial 🤖"
+                  : "Generate your personalized routine with AI 🤖")
             }
             action={
               !hasOnboarding
                 ? { label: locale === "es" ? "Configurar ahora" : "Set up now", onClick: () => navigate("/onboarding") }
-                : { label: locale === "es" ? "Ver catálogo" : "Browse catalog", onClick: () => navigate("/workout") }
+                : { label: locale === "es" ? "🧠 Generar mi rutina" : "🧠 Generate my routine", onClick: () => handleGenerateRoutine() }
             }
           />
+        </div>
+      )}
+
+      {/* Generate Smart Routine Button */}
+      {hasOnboarding && visibleWorkouts.length > 0 && (
+        <div className="px-6 mb-4">
+          <button
+            onClick={handleGenerateRoutine}
+            disabled={generatingRoutine}
+            className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 text-sm font-semibold text-primary hover:from-primary/15 hover:to-accent/15 transition-all disabled:opacity-50"
+          >
+            {generatingRoutine ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {locale === "es" ? "Generando tu plan personalizado..." : "Generating your personalized plan..."}
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                {locale === "es" ? "🧠 Regenerar rutina con IA" : "🧠 Regenerate routine with AI"}
+              </>
+            )}
+          </button>
         </div>
       )}
 
@@ -655,7 +584,7 @@ const Dashboard = () => {
         <GoalChanger currentGoal={goalKey} />
       </div>
 
-      {/* Training Plan - Day 1, Day 2, etc. */}
+      {/* Training Plan */}
       <div className="px-6 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-display font-bold text-foreground">
@@ -764,7 +693,7 @@ const Dashboard = () => {
         <WeeklyChallenge goalKey={goalKey} thisWeekWorkouts={workoutStats?.thisWeekWorkouts || 0} />
       </div>
 
-      {/* Pro Upsell for free users - subtle bottom placement */}
+      {/* Pro Upsell for free users */}
       {!isPro && (
         <div className="px-6 mb-6">
           <ProUpsell />

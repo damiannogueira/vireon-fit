@@ -32,7 +32,6 @@ export const AdminRolesTab = ({ roles }: Props) => {
   const roleLabel = (role: string) => {
     switch (role) {
       case "admin": return t.admin.superAdmin;
-      case "gym_admin": return t.admin.gymAdmin;
       default: return t.admin.user;
     }
   };
@@ -40,7 +39,6 @@ export const AdminRolesTab = ({ roles }: Props) => {
   const roleBadgeVariant = (role: string) => {
     switch (role) {
       case "admin": return "destructive" as const;
-      case "gym_admin": return "default" as const;
       default: return "secondary" as const;
     }
   };
@@ -77,7 +75,6 @@ export const AdminRolesTab = ({ roles }: Props) => {
             <TableRow>
               <TableHead>{t.admin.userId}</TableHead>
               <TableHead>{t.admin.role}</TableHead>
-              <TableHead>{t.admin.userGym}</TableHead>
               <TableHead>{t.admin.actions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -94,13 +91,9 @@ export const AdminRolesTab = ({ roles }: Props) => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">{t.admin.user}</SelectItem>
-                      <SelectItem value="gym_admin">{t.admin.gymAdmin}</SelectItem>
                       <SelectItem value="admin">{t.admin.superAdmin}</SelectItem>
                     </SelectContent>
                   </Select>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground font-mono">
-                  {r.gym_id ? `${r.gym_id.slice(0, 8)}...` : "—"}
                 </TableCell>
                 <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)}>
@@ -110,7 +103,7 @@ export const AdminRolesTab = ({ roles }: Props) => {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">{t.admin.noData}</TableCell>
+                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">{t.admin.noData}</TableCell>
               </TableRow>
             )}
           </TableBody>

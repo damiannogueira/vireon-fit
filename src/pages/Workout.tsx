@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, SkipForward, Check, Timer, Loader2, Lock, Dumbbell } from "lucide-react";
+import { ChevronLeft, SkipForward, Check, Timer, Loader2, Lock, Dumbbell, TrendingUp, Minus, Plus } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { XPBar } from "@/components/XPBar";
@@ -8,7 +8,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { AssignedRoutines } from "@/components/AssignedRoutines";
 import { ProUpsell } from "@/components/ProUpsell";
 import { useI18n } from "@/i18n";
-import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, FREE_LIMITS } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +16,11 @@ import { toast } from "sonner";
 
 import { RestTimer } from "@/components/workout/RestTimer";
 import { ExerciseStartPrompt } from "@/components/workout/ExerciseStartPrompt";
+import { WorkoutSummary } from "@/components/workout/WorkoutSummary";
+import { WarmupPhase } from "@/components/workout/WarmupPhase";
+import { useProgressiveOverload, calculateProgression } from "@/hooks/useProgressiveOverload";
+import type { ProgressionSuggestion } from "@/hooks/useProgressiveOverload";
+import { useWeeklyAdjustment } from "@/hooks/useWeeklyAdjustment";
 
 const XP_PER_SET = 10;
 
@@ -30,8 +34,11 @@ interface ExerciseState {
   id: string;
   exerciseId: string;
   name: string;
+  description: string;
+  muscleGroup: string;
   sets: SetData[];
   restSeconds: number;
+  progression?: ProgressionSuggestion;
 }
 
 const Workout = () => {
@@ -39,7 +46,6 @@ const Workout = () => {
   const { workoutId } = useParams<{ workoutId: string }>();
   const { t, locale } = useI18n();
   const { user } = useAuth();
-  const { isGymAdmin } = useUserRole();
   const { isPro } = useSubscription();
   const queryClient = useQueryClient();
   const startedAt = useRef(new Date().toISOString());
@@ -50,6 +56,9 @@ const Workout = () => {
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [restSeconds, setRestSeconds] = useState(60);
   const [exerciseStarted, setExerciseStarted] = useState<Record<number, boolean>>({});
+  const [showSummary, setShowSummary] = useState(false);
+  const [warmupCompleted, setWarmupCompleted] = useState(false);
+  const [summaryData, setSummaryData] = useState<{ xpEarned: number; completedSetsCount: number; durationMinutes: number } | null>(null);
 
   // Check weekly workout count for free limit
   const { data: weeklyCount } = useQuery({
@@ -93,7 +102,7 @@ const Workout = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workout_exercises")
-        .select("id, exercise_id, sets, reps, rest_seconds, sort_order, default_weight, exercises(name)")
+        .select("id, exercise_id, sets, reps, rest_seconds, sort_order, default_weight, exercises(name, description, muscle_group, image_url)")
         .eq("workout_id", workoutId!)
         .order("sort_order");
       if (error) throw error;
@@ -102,24 +111,116 @@ const Workout = () => {
     enabled: !!workoutId,
   });
 
-  // Initialize exercises state from fetched data (KG and reps are pre-set, not editable)
-  if (workoutExercisesData && workoutExercisesData.length > 0 && !initialized) {
-    const mapped: ExerciseState[] = workoutExercisesData.map((we) => ({
-      id: we.id,
-      exerciseId: we.exercise_id,
-      name: (we.exercises as any)?.name || "Exercise",
-      restSeconds: we.rest_seconds || 60,
-      sets: Array.from({ length: we.sets || 3 }, () => ({
-        reps: we.reps || 10,
-        weight: Number((we as any).default_weight) || 0,
-        completed: false,
-      })),
-    }));
+  // Get user fitness level for progression calculations
+  const { data: userProfile } = useQuery({
+    queryKey: ["workout-user-profile", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("fitness_level")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Get exercise names for progressive overload query
+  const exerciseNames = useMemo(() => {
+    if (!workoutExercisesData) return [];
+    return workoutExercisesData.map(we => (we.exercises as any)?.name || "").filter(Boolean);
+  }, [workoutExercisesData]);
+
+  // Progressive overload data
+  const { data: historyMap } = useProgressiveOverload(
+    user?.id,
+    exerciseNames,
+    userProfile?.fitness_level || undefined
+  );
+
+  // Weekly adjustment data
+  const { data: weeklyAdjustment } = useWeeklyAdjustment(user?.id);
+  const weeklyMultiplier = weeklyAdjustment?.weight_multiplier ?? 1.0;
+  const weeklyRepsModifier = weeklyAdjustment?.reps_modifier ?? 0;
+
+  // Initialize exercises state from fetched data WITH progressive overload
+  useEffect(() => {
+    if (!workoutExercisesData || workoutExercisesData.length === 0 || initialized) return;
+    if (!historyMap && exerciseNames.length > 0) return; // Wait for history
+
+    const mapped: ExerciseState[] = workoutExercisesData.map((we) => {
+      const name = (we.exercises as any)?.name || "Exercise";
+      const muscleGroup = (we.exercises as any)?.muscle_group || "";
+      const defaultWeight = Number((we as any).default_weight) || 0;
+      const defaultReps = we.reps || 10;
+
+      // Calculate progression with weekly adjustment
+      const history = historyMap?.[name] || [];
+      const progression = calculateProgression(
+        history,
+        defaultWeight,
+        defaultReps,
+        muscleGroup,
+        userProfile?.fitness_level || undefined,
+        weeklyMultiplier,
+        weeklyRepsModifier
+      );
+
+      const appliedWeight = progression.isProgression || history.length > 0
+        ? progression.suggestedWeight
+        : defaultWeight;
+      const appliedReps = progression.isProgression || history.length > 0
+        ? progression.suggestedReps
+        : defaultReps;
+
+      return {
+        id: we.id,
+        exerciseId: we.exercise_id,
+        name,
+        description: (we.exercises as any)?.description || "",
+        muscleGroup,
+        restSeconds: we.rest_seconds || 60,
+        progression,
+        sets: Array.from({ length: we.sets || 3 }, () => ({
+          reps: appliedReps,
+          weight: appliedWeight,
+          completed: false,
+        })),
+      };
+    });
     setExercises(mapped);
     setInitialized(true);
-  }
+  }, [workoutExercisesData, historyMap, initialized, userProfile, exerciseNames.length]);
 
   const activeExercises = initialized ? exercises : [];
+  const workoutTitle = workout?.name || "Workout";
+
+  // Collect muscle groups for warmup
+  const workoutMuscleGroups = useMemo(() => {
+    return [...new Set(activeExercises.map(e => e.muscleGroup).filter(Boolean))];
+  }, [activeExercises]);
+
+  const adjustWeight = (exIdx: number, setIdx: number, delta: number) => {
+    setExercises(prev => prev.map((ex, ei) =>
+      ei === exIdx ? {
+        ...ex,
+        sets: ex.sets.map((s, si) =>
+          si === setIdx ? { ...s, weight: Math.max(0, +(s.weight + delta).toFixed(2)) } : s
+        ),
+      } : ex
+    ));
+  };
+
+  const adjustReps = (exIdx: number, setIdx: number, delta: number) => {
+    setExercises(prev => prev.map((ex, ei) =>
+      ei === exIdx ? {
+        ...ex,
+        sets: ex.sets.map((s, si) =>
+          si === setIdx ? { ...s, reps: Math.max(1, s.reps + delta) } : s
+        ),
+      } : ex
+    ));
+  };
 
   // Complete workout mutation
   const completeWorkoutMutation = useMutation({
@@ -173,9 +274,10 @@ const Workout = () => {
           .eq("user_id", user.id);
       }
 
-      return { xpEarned, completedSetsCount };
+      const actualDuration = Math.max(1, Math.round((new Date(now).getTime() - new Date(startedAt.current).getTime()) / 60000));
+      return { xpEarned, completedSetsCount, durationMinutes: actualDuration };
     },
-    onSuccess: ({ xpEarned, completedSetsCount }) => {
+    onSuccess: ({ xpEarned, completedSetsCount, durationMinutes: dur }) => {
       queryClient.invalidateQueries({ queryKey: ["dashboard-profile", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-workout-stats", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-recent-logs", user?.id] });
@@ -184,8 +286,9 @@ const Workout = () => {
       queryClient.invalidateQueries({ queryKey: ["achievements-workout-count", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["achievements-weekly-workouts", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["weekly-workout-count", user?.id] });
-      toast.success(`🏆 +${xpEarned} XP (${completedSetsCount} sets)`);
-      navigate("/dashboard");
+      queryClient.invalidateQueries({ queryKey: ["progressive-overload", user?.id] });
+      setSummaryData({ xpEarned, completedSetsCount, durationMinutes: dur });
+      setShowSummary(true);
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al guardar el entreno");
@@ -214,29 +317,6 @@ const Workout = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Gym admins cannot train — workouts are for members
-  if (isGymAdmin) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center gap-4">
-        <Dumbbell className="w-12 h-12 text-muted-foreground opacity-50" />
-        <h2 className="text-xl font-bold text-foreground">
-          {locale === "es" ? "Rutina para alumnos" : "Member-only workout"}
-        </h2>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          {locale === "es"
-            ? "Como administrador del gimnasio, las rutinas están diseñadas para tus alumnos. Podés asignarlas desde el panel de coach."
-            : "As a gym admin, workouts are designed for your members. You can assign them from the coach dashboard."}
-        </p>
-        <button
-          onClick={() => navigate("/gym/dashboard")}
-          className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          {locale === "es" ? "Ir al panel coach" : "Go to coach dashboard"}
-        </button>
       </div>
     );
   }
@@ -275,6 +355,26 @@ const Workout = () => {
     );
   }
 
+  // Show warmup phase before exercises
+  if (!warmupCompleted && activeExercises.length > 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="sticky top-0 z-40 glass-strong px-4 py-3 flex items-center justify-between">
+          <button onClick={() => navigate("/dashboard")} className="text-muted-foreground hover:text-foreground">
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-sm font-bold text-foreground">{workoutTitle}</h1>
+          <div className="w-6" />
+        </div>
+        <WarmupPhase
+          muscleGroups={workoutMuscleGroups}
+          onComplete={() => setWarmupCompleted(true)}
+        />
+      </div>
+    );
+  }
+
   const currentExercise = activeExercises[currentExIdx];
   const totalSets = activeExercises.reduce((a, e) => a + e.sets.length, 0);
   const completedSets = activeExercises.reduce((a, e) => a + e.sets.filter(s => s.completed).length, 0);
@@ -293,7 +393,6 @@ const Workout = () => {
     const set = activeExercises[exIdx].sets[setIdx];
     const wasCompleted = set.completed;
     
-    // If unchecking, also uncheck all subsequent sets
     if (wasCompleted) {
       setExercises(prev => prev.map((ex, ei) =>
         ei === exIdx ? { ...ex, sets: ex.sets.map((s, si) => si >= setIdx ? { ...s, completed: false } : s) } : ex
@@ -305,11 +404,9 @@ const Workout = () => {
       ei === exIdx ? { ...ex, sets: ex.sets.map((s, si) => si === setIdx ? { ...s, completed: true } : s) } : ex
     ));
 
-    // If marking as complete (not unchecking), start rest timer
     if (!wasCompleted) {
       const exercise = activeExercises[exIdx];
       const isLastSet = setIdx === exercise.sets.length - 1 && exercise.sets.slice(0, setIdx).every(s => s.completed);
-      // Don't show timer after last set of last exercise
       const isLastExercise = exIdx === activeExercises.length - 1;
       if (!(isLastSet && isLastExercise)) {
         setRestSeconds(exercise.restSeconds);
@@ -332,7 +429,42 @@ const Workout = () => {
     }
   };
 
-  const workoutTitle = workout?.name || "Workout";
+
+  // Build summary exercise data
+  const summaryExercises = activeExercises.map(ex => {
+    const completedSetsList = ex.sets.filter(s => s.completed);
+    const avgWeight = completedSetsList.length > 0
+      ? Math.round((completedSetsList.reduce((a, s) => a + s.weight, 0) / completedSetsList.length) * 10) / 10
+      : 0;
+    const avgReps = completedSetsList.length > 0
+      ? Math.round(completedSetsList.reduce((a, s) => a + s.reps, 0) / completedSetsList.length)
+      : 0;
+    const totalVolume = completedSetsList.reduce((a, s) => a + s.weight * s.reps, 0);
+    return {
+      name: ex.name,
+      muscleGroup: ex.muscleGroup,
+      setsCompleted: completedSetsList.length,
+      totalSets: ex.sets.length,
+      avgWeight,
+      avgReps,
+      totalVolume,
+      progression: ex.progression,
+    };
+  });
+
+  if (showSummary && summaryData) {
+    return (
+      <WorkoutSummary
+        workoutName={workoutTitle}
+        xpEarned={summaryData.xpEarned}
+        totalSets={totalSets}
+        completedSets={summaryData.completedSetsCount}
+        durationMinutes={summaryData.durationMinutes}
+        exercises={summaryExercises}
+        onClose={() => navigate("/dashboard")}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -405,6 +537,9 @@ const Workout = () => {
               exerciseName={currentExercise.name}
               exerciseNumber={currentExIdx + 1}
               totalExercises={activeExercises.length}
+              description={currentExercise.description}
+              muscleGroup={currentExercise.muscleGroup}
+              exerciseId={currentExercise.exerciseId}
               onStart={() => handleStartExercise(currentExIdx)}
             />
           ) : (
@@ -419,45 +554,108 @@ const Workout = () => {
                 </div>
               </div>
 
+              {/* Progressive Overload Banner */}
+              {currentExercise.progression && currentExercise.progression.previousWeight > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "mb-4 p-3 rounded-xl border flex items-center gap-3",
+                    currentExercise.progression.isProgression
+                      ? "bg-primary/10 border-primary/30"
+                      : "bg-secondary border-border/50"
+                  )}
+                >
+                  <TrendingUp className={cn(
+                    "w-5 h-5 flex-shrink-0",
+                    currentExercise.progression.isProgression ? "text-primary" : "text-muted-foreground"
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn(
+                      "text-xs font-semibold",
+                      currentExercise.progression.isProgression ? "text-primary" : "text-foreground"
+                    )}>
+                      {currentExercise.progression.message}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Anterior: {currentExercise.progression.previousWeight}kg × {currentExercise.progression.previousReps} reps
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Sets Table */}
               <div className="rounded-2xl overflow-hidden border border-border/50 bg-card">
-                <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-0 text-xs text-muted-foreground font-medium px-4 py-2.5 bg-secondary/50">
-                  <span>SET</span>
+                <div className="grid grid-cols-[40px_1fr_1fr_44px] gap-0 text-xs text-muted-foreground font-medium px-3 py-2.5 bg-secondary/50">
+                  <span className="text-center">SET</span>
                   <span className="text-center">KG</span>
                   <span className="text-center">REPS</span>
-                  <span className="text-center w-10">✓</span>
+                  <span className="text-center">✓</span>
                 </div>
                 {currentExercise.sets.map((set, si) => (
                   <div
                     key={si}
                     className={cn(
-                      "grid grid-cols-[auto_1fr_1fr_auto] gap-0 items-center px-4 py-3 border-t border-border/30",
+                      "grid grid-cols-[40px_1fr_1fr_44px] gap-0 items-center px-3 py-2 border-t border-border/30",
                       set.completed && "bg-primary/5"
                     )}
                   >
                     <span className={cn(
-                      "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold",
+                      "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold mx-auto",
                       set.completed ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
                     )}>
                       {si + 1}
                     </span>
-                    <div className="flex justify-center">
-                      <span className="w-16 h-9 rounded-lg bg-secondary/50 border border-border/30 flex items-center justify-center text-sm font-semibold text-foreground">
+
+                    {/* Editable Weight */}
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => adjustWeight(currentExIdx, si, -2.5)}
+                        disabled={set.completed}
+                        className="w-7 h-7 rounded-lg bg-secondary/70 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-14 h-8 rounded-lg bg-secondary/50 border border-border/30 flex items-center justify-center text-sm font-semibold text-foreground">
                         {set.weight}
                       </span>
+                      <button
+                        onClick={() => adjustWeight(currentExIdx, si, 2.5)}
+                        disabled={set.completed}
+                        className="w-7 h-7 rounded-lg bg-secondary/70 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
                     </div>
-                    <div className="flex justify-center">
-                      <span className="w-16 h-9 rounded-lg bg-secondary/50 border border-border/30 flex items-center justify-center text-sm font-semibold text-foreground">
+
+                    {/* Editable Reps */}
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => adjustReps(currentExIdx, si, -1)}
+                        disabled={set.completed}
+                        className="w-7 h-7 rounded-lg bg-secondary/70 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-10 h-8 rounded-lg bg-secondary/50 border border-border/30 flex items-center justify-center text-sm font-semibold text-foreground">
                         {set.reps}
                       </span>
+                      <button
+                        onClick={() => adjustReps(currentExIdx, si, 1)}
+                        disabled={set.completed}
+                        className="w-7 h-7 rounded-lg bg-secondary/70 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
                     </div>
+
                     <button
                       onClick={() => completeSet(currentExIdx, si)}
                       disabled={!canCompleteSet(currentExIdx, si) && !set.completed}
                       className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all mx-auto",
                         set.completed
-                          ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(142_72%_50%/0.3)]"
+                          ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
                           : canCompleteSet(currentExIdx, si)
                             ? "bg-secondary text-muted-foreground hover:bg-primary/20 hover:text-primary"
                             : "bg-secondary/50 text-muted-foreground/30 cursor-not-allowed"
@@ -486,7 +684,7 @@ const Workout = () => {
                     className={cn(
                       "flex-1 h-12 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]",
                       allSetsCompleted(currentExIdx)
-                        ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsl(142_72%_50%/0.2)]"
+                        ? "bg-primary text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.2)]"
                         : "bg-secondary text-muted-foreground cursor-not-allowed opacity-50"
                     )}
                   >
@@ -496,7 +694,7 @@ const Workout = () => {
                   <button
                     onClick={handleFinish}
                     disabled={completeWorkoutMutation.isPending || !allSetsCompleted(currentExIdx)}
-                    className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_hsl(142_72%_50%/0.2)] transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="flex-1 h-12 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_hsl(var(--primary)/0.2)] transition-all active:scale-[0.98] disabled:opacity-50"
                   >
                     {completeWorkoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.workout.completeWorkout}
                   </button>

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronRight, Download, Dumbbell, Users, Globe, CreditCard } from "lucide-react";
+import { ChevronRight, Download, Dumbbell, Globe, CreditCard } from "lucide-react";
 import { useI18n } from "@/i18n";
 import heroImage from "@/assets/hero-fitness.jpg";
 
@@ -77,29 +77,29 @@ const Landing = () => {
             {t.landing.viewPricing}
           </button>
 
-          <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/install")}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
+          >
+            <Download className="w-4 h-4" />
+            {t.landing.installApp}
+          </button>
+
+          <div className="flex items-center justify-center gap-1.5 py-2">
             <button
-              onClick={() => navigate("/gym")}
-              className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
+              onClick={() => navigate("/auth?mode=signup")}
+              className="text-sm text-primary font-semibold hover:text-primary/80 transition-colors"
             >
-              <Users className="w-4 h-4" />
-              {t.landing.imAGym}
+              {locale === "es" ? "Registrarse" : "Sign up"}
             </button>
+            <span className="text-sm text-muted-foreground">·</span>
             <button
-              onClick={() => navigate("/install")}
-              className="flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl bg-muted border border-border/50 text-muted-foreground font-medium text-sm hover:text-foreground hover:bg-muted/80 transition-all duration-200 active:scale-[0.98]"
+              onClick={() => navigate("/auth")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Download className="w-4 h-4" />
-              {t.landing.installApp}
+              {locale === "es" ? "Ya tengo cuenta" : "I have an account"}
             </button>
           </div>
-
-          <button
-            onClick={() => navigate("/auth")}
-            className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-          >
-            {t.landing.haveAccount}
-          </button>
         </motion.div>
       </div>
     </div>

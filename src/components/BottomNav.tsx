@@ -1,24 +1,19 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Dumbbell, Trophy, User, LayoutGrid } from "lucide-react";
+import { Home, Dumbbell, Trophy, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
-import { useUserRole } from "@/hooks/useUserRole";
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { isGymAdmin } = useUserRole();
 
-  const allItems = [
-    { path: "/dashboard", icon: Home, label: t.nav.dashboard, show: true },
-    { path: "/workout", icon: Dumbbell, label: t.nav.workout, show: !isGymAdmin },
-    { path: "/gym", icon: LayoutGrid, label: t.nav.gym, show: isGymAdmin },
-    { path: "/achievements", icon: Trophy, label: t.nav.achievements, show: !isGymAdmin },
-    { path: "/profile", icon: User, label: t.nav.profile, show: true },
+  const navItems = [
+    { path: "/dashboard", icon: Home, label: t.nav.dashboard },
+    { path: "/workout", icon: Dumbbell, label: t.nav.workout },
+    { path: "/achievements", icon: Trophy, label: t.nav.achievements },
+    { path: "/profile", icon: User, label: t.nav.profile },
   ];
-
-  const navItems = allItems.filter(item => item.show);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-border/50">

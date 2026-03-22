@@ -13,11 +13,11 @@ type AuthMode = "login" | "signup" | "forgot";
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const inviteGymId = searchParams.get("invite");
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { t } = useI18n();
-  const [mode, setMode] = useState<AuthMode>(inviteGymId ? "signup" : "login");
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "login";
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -26,37 +26,9 @@ const Auth = () => {
 
   useEffect(() => {
     if (!authLoading && user) {
-      // If there's an invite param and user just logged in/signed up, join the gym
-      if (inviteGymId) {
-        joinGym(user.id, inviteGymId).then(() => {
-          navigate("/dashboard", { replace: true });
-        });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
+      navigate("/dashboard", { replace: true });
     }
-  }, [user, authLoading, navigate, inviteGymId]);
-
-  const joinGym = async (userId: string, gymId: string) => {
-    try {
-      // Check if already a member
-      const { data: existing } = await supabase
-        .from("gym_members")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("gym_id", gymId)
-        .maybeSingle();
-      if (!existing) {
-        await supabase.from("gym_members").insert({ user_id: userId, gym_id: gymId });
-        await supabase.from("profiles").update({ gym_id: gymId }).eq("user_id", userId);
-        // Send welcome notification
-        await supabase.rpc("create_welcome_notification", { _user_id: userId, _gym_id: gymId });
-      }
-    } catch (e) {
-      console.error("Failed to join gym:", e);
-    }
-  };
-
+  }, [user, authLoading, navigate]);
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -68,16 +40,27 @@ const Auth = () => {
     // navigation handled by useEffect
   };
 
+  const getRedirectUrl = () => {
+    const origin = window.location.origin;
+    // Avoid lovableproject.com auth-bridge issues by using lovable.app domain
+    if (origin.includes('lovableproject.com')) {
+      const projectId = origin.match(/([a-f0-9-]+)\.lovableproject\.com/)?.[1];
+      if (projectId) {
+        return `https://id-preview--${projectId}.lovable.app`;
+      }
+    }
+    return origin;
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const redirectBase = getRedirectUrl();
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: inviteGymId
-          ? `${window.location.origin}/auth?invite=${inviteGymId}`
-          : window.location.origin,
+        emailRedirectTo: redirectBase,
         data: { display_name: displayName },
       },
     });
@@ -86,6 +69,8 @@ const Auth = () => {
       toast({ title: t.auth.signupError, description: sanitizeAuthError(error), variant: "destructive" });
     } else {
       toast({ title: t.auth.accountCreated, description: t.auth.checkEmail });
+      setMode("login");
+      setPassword("");
     }
   };
 
@@ -111,9 +96,7 @@ const Auth = () => {
 
   const subtitles: Record<AuthMode, string> = {
     login: t.auth.loginSubtitle,
-    signup: inviteGymId
-      ? (t as any).auth?.inviteSubtitle || "Te invitaron a un gimnasio. Registrate para unirte."
-      : t.auth.signupSubtitle,
+    signup: t.auth.signupSubtitle,
     forgot: t.auth.forgotSubtitle,
   };
 
@@ -132,14 +115,6 @@ const Auth = () => {
         </div>
       </div>
 
-      {/* Invite banner */}
-      {inviteGymId && (
-        <div className="mb-4 p-3 rounded-xl bg-primary/10 border border-primary/30 text-sm text-foreground">
-          🏋️ {mode === "signup"
-            ? "Registrate para unirte al gimnasio"
-            : "Iniciá sesión para unirte al gimnasio"}
-        </div>
-      )}
 
       {/* Title */}
       <AnimatePresence mode="wait">

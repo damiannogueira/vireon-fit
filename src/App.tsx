@@ -14,8 +14,6 @@ import Dashboard from "./pages/Dashboard";
 import Workout from "./pages/Workout";
 import Achievements from "./pages/Achievements";
 import Profile from "./pages/Profile";
-import GymDashboard from "./pages/GymDashboard";
-import GymCoachDashboard from "./pages/GymCoachDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import Pricing from "./pages/Pricing";
 import Install from "./pages/Install";
@@ -42,8 +40,6 @@ const App = () => (
               <Route path="/workout/:workoutId" element={<ProtectedRoute><Workout /></ProtectedRoute>} />
               <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/gym" element={<ProtectedRoute><GymDashboard /></ProtectedRoute>} />
-              <Route path="/gym/dashboard" element={<ProtectedRoute><GymCoachDashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
               <Route path="/install" element={<Install />} />
               <Route path="*" element={<NotFound />} />

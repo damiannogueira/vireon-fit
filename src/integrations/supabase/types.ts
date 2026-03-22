@@ -343,6 +343,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          birth_date: string | null
           created_at: string
           display_name: string | null
           fitness_level: Database["public"]["Enums"]["fitness_level"] | null
@@ -360,6 +361,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          birth_date?: string | null
           created_at?: string
           display_name?: string | null
           fitness_level?: Database["public"]["Enums"]["fitness_level"] | null
@@ -377,6 +379,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          birth_date?: string | null
           created_at?: string
           display_name?: string | null
           fitness_level?: Database["public"]["Enums"]["fitness_level"] | null
@@ -564,6 +567,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      weekly_adjustments: {
+        Row: {
+          adjustment_type: string
+          completion_rate: number
+          consistency_score: number
+          created_at: string
+          id: string
+          message: string | null
+          reps_modifier: number
+          user_id: string
+          volume_change_pct: number
+          week_start: string
+          weight_multiplier: number
+        }
+        Insert: {
+          adjustment_type?: string
+          completion_rate?: number
+          consistency_score?: number
+          created_at?: string
+          id?: string
+          message?: string | null
+          reps_modifier?: number
+          user_id: string
+          volume_change_pct?: number
+          week_start: string
+          weight_multiplier?: number
+        }
+        Update: {
+          adjustment_type?: string
+          completion_rate?: number
+          consistency_score?: number
+          created_at?: string
+          id?: string
+          message?: string | null
+          reps_modifier?: number
+          user_id?: string
+          volume_change_pct?: number
+          week_start?: string
+          weight_multiplier?: number
+        }
+        Relationships: []
       }
       weekly_challenge_completions: {
         Row: {
@@ -835,6 +880,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_own_subscription: {
+        Args: { _subscription_id: string }
+        Returns: boolean
+      }
+      create_user_subscription: {
+        Args: { _gym_id?: string; _plan_id: string; _user_id: string }
+        Returns: string
+      }
       create_welcome_notification: {
         Args: { _gym_id: string; _user_id: string }
         Returns: undefined
