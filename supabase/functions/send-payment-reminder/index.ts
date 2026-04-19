@@ -37,11 +37,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { gymId, userIds, gymName } = await req.json();
+    const { gymId, userIds } = await req.json();
 
-    if (!gymId || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    // Validate input
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (
+      !gymId || typeof gymId !== "string" || !UUID_RE.test(gymId) ||
+      !Array.isArray(userIds) || userIds.length === 0 || userIds.length > 500 ||
+      !userIds.every((u) => typeof u === "string" && UUID_RE.test(u))
+    ) {
       return new Response(
-        JSON.stringify({ error: "gymId and userIds required" }),
+        JSON.stringify({ error: "Invalid gymId or userIds" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -65,8 +71,35 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch gym name server-side (no spoofing from client)
+    const { data: gymRow } = await supabaseAuth
+      .from("gyms")
+      .select("name")
+      .eq("id", gymId)
+      .maybeSingle();
+    const gymName = gymRow?.name || "Tu gimnasio";
+
+    // Validate userIds belong to this gym
+    const { data: validMembers } = await supabaseAuth
+      .from("gym_members")
+      .select("user_id")
+      .eq("gym_id", gymId)
+      .eq("is_active", true)
+      .in("user_id", userIds);
+    const validIds = (validMembers || []).map((m: { user_id: string }) => m.user_id);
+
+    if (validIds.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No valid recipients in this gym" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // Create in-app notifications for each user
-    const notifications = userIds.map((userId: string) => ({
+    const notifications = validIds.map((userId: string) => ({
       user_id: userId,
       gym_id: gymId,
       type: "payment_reminder",
@@ -97,7 +130,7 @@ Deno.serve(async (req) => {
     if (resendKey) {
       // Get user emails
       const emailResults = await Promise.allSettled(
-        userIds.map(async (userId: string) => {
+        validIds.map(async (userId: string) => {
           const {
             data: { user: targetUser },
           } = await supabaseAuth.auth.admin.getUserById(userId);
@@ -133,7 +166,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        notificationsSent: userIds.length,
+        notificationsSent: validIds.length,
         emailsSent,
         emailsEnabled: !!resendKey,
       }),

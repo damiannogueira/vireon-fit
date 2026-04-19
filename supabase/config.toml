@@ -1,13 +1,13 @@
 project_id = "imdldceugiairplylnqq"
 
-[functions.send-payment-reminder]
-verify_jwt = false
-
-[functions.generate-smart-routine]
-verify_jwt = false
-
-[functions.update-exercise-descriptions]
-verify_jwt = false
-
-[functions.weekly-adjustment]
-verify_jwt = false
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.generate-smart-routine]
+    verify_jwt = false
+  [functions.send-payment-reminder]
+    verify_jwt = false
+  [functions.update-exercise-descriptions]
+    verify_jwt = false
+  [functions.weekly-adjustment]
+    verify_jwt = false

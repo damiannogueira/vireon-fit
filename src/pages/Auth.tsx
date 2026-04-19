@@ -60,7 +60,7 @@ const Auth = () => {
       email,
       password,
       options: {
-        emailRedirectTo: redirectBase,
+        emailRedirectTo: `${redirectBase}/auth/callback`,
         data: { display_name: displayName },
       },
     });

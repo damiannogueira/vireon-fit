@@ -139,6 +139,7 @@ const Profile = () => {
       if (field === "gender") updateData.gender = value;
       if (field === "height_cm") updateData.height_cm = value ? Number(value) : null;
       if (field === "weight_kg") updateData.weight_kg = value ? Number(value) : null;
+      if (field === "fitness_level") updateData.fitness_level = value;
       const { error } = await supabase.from("profiles").update(updateData).eq("user_id", user.id);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["profile-page"] });
@@ -300,10 +301,33 @@ const Profile = () => {
         {/* Config */}
         <h2 className="text-lg font-display font-bold text-foreground mb-3">{t.profile.settings}</h2>
         <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-          {/* Fitness level */}
+          {/* Fitness level - editable */}
           <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/30">
             <span className="text-sm text-foreground">{t.profile.level}</span>
-            <span className="text-sm text-muted-foreground">{fitnessLabel(fitnessLevel)}</span>
+            {editingField === "fitness_level" ? (
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {(["beginner", "intermediate", "advanced"] as const).map(fl => (
+                  <button
+                    key={fl}
+                    onClick={() => handleSaveField("fitness_level", fl)}
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg border transition-all",
+                      fitnessLevel === fl
+                        ? "bg-primary/20 border-primary text-primary"
+                        : "border-border/50 text-muted-foreground hover:border-primary/30"
+                    )}
+                  >
+                    {fitnessLabel(fl)}
+                  </button>
+                ))}
+                <button onClick={() => setEditingField(null)} className="text-muted-foreground ml-1"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingField("fitness_level")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+                <span>{fitnessLabel(fitnessLevel)}</span>
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
           {/* Gender - editable */}
