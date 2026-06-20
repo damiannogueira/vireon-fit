@@ -24,6 +24,8 @@ export function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-200",
                 isActive
@@ -31,7 +33,7 @@ export function BottomNav() {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className={cn("w-5 h-5", isActive && "drop-shadow-[0_0_8px_hsl(142_72%_50%/0.6)]")} />
+              <Icon aria-hidden="true" className={cn("w-5 h-5", isActive && "drop-shadow-[0_0_8px_hsl(142_72%_50%/0.6)]")} />
               <span className="text-[10px] font-medium">{label}</span>
               {isActive && (
                 <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary shadow-[0_0_6px_hsl(142_72%_50%/0.8)]" />

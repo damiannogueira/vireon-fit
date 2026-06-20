@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Monitor, Smartphone, Tablet, CheckCircle2, Share } from "lucide-react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/i18n";
+import { SEO } from "@/components/SEO";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -12,7 +13,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 const Install = () => {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -47,6 +48,13 @@ const Install = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6">
+      <SEO
+        title={locale === "es" ? "Instalá Vireon Fit como app (PWA)" : "Install Vireon Fit as an app (PWA)"}
+        description={locale === "es"
+          ? "Guía paso a paso para instalar Vireon Fit en iOS, Android, tablet y escritorio. Funciona offline."
+          : "Step-by-step guide to install Vireon Fit on iOS, Android, tablet and desktop. Works offline."}
+        path="/install"
+      />
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4 self-start"

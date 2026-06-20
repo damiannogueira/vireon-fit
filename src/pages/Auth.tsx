@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sanitizeAuthError } from "@/lib/auth-errors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
+import { SEO } from "@/components/SEO";
 
 type AuthMode = "login" | "signup" | "forgot";
 
@@ -102,6 +103,11 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background px-6 py-8">
+      <SEO
+        title={mode === "signup" ? (titles.signup + " — Vireon Fit") : (titles.login + " — Vireon Fit")}
+        description={subtitles[mode]}
+        path="/auth"
+      />
       {/* Header */}
       <div className="flex items-center gap-3 mb-10">
         <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">

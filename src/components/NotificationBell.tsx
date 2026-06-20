@@ -70,8 +70,11 @@ export function NotificationBell() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="relative w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-          <Bell className="w-5 h-5" />
+        <button
+          aria-label={locale === "es" ? `Notificaciones${unreadCount > 0 ? `, ${unreadCount} sin leer` : ""}` : `Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+          className="relative w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Bell className="w-5 h-5" aria-hidden="true" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
               {unreadCount > 9 ? "9+" : unreadCount}

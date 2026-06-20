@@ -2,17 +2,30 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ChevronRight, Download, Dumbbell, Globe, CreditCard } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { SEO } from "@/components/SEO";
 import heroImage from "@/assets/hero-fitness.jpg";
 
 const Landing = () => {
   const navigate = useNavigate();
   const { t, locale, setLocale } = useI18n();
 
+  const seoTitle = locale === "es"
+    ? "Vireon Fit — Entrenamiento gamificado estilo RPG"
+    : "Vireon Fit — Gamified RPG-style training";
+  const seoDesc = locale === "es"
+    ? "App de fitness gamificada: rutinas personalizadas por IA, XP, niveles, logros y rachas. Entrená como en un RPG."
+    : "Gamified fitness app: AI-personalized routines, XP, levels, achievements and streaks. Train like in an RPG.";
+
   return (
     <div className="relative min-h-screen flex flex-col overflow-hidden bg-background">
+      <SEO title={seoTitle} description={seoDesc} path="/" />
       {/* Hero image */}
       <div className="absolute inset-0">
-        <img src={heroImage} alt="Fitness" className="w-full h-full object-cover opacity-40" />
+        <img
+          src={heroImage}
+          alt={locale === "es" ? "Atleta entrenando con energía en un gimnasio oscuro estilo RPG" : "Athlete training with energy in a dark RPG-style gym"}
+          className="w-full h-full object-cover opacity-40"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/70 to-background" />
       </div>
 
@@ -20,9 +33,10 @@ const Landing = () => {
       <div className="relative z-20 flex justify-end p-4">
         <button
           onClick={() => setLocale(locale === "es" ? "en" : "es")}
+          aria-label={locale === "es" ? "Cambiar idioma a inglés" : "Switch language to Spanish"}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/80 backdrop-blur border border-border/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Globe className="w-3.5 h-3.5" />
+          <Globe className="w-3.5 h-3.5" aria-hidden="true" />
           {locale === "es" ? "EN" : "ES"}
         </button>
       </div>

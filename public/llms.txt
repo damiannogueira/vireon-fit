@@ -1,0 +1,10 @@
+# Vireon Fit
+
+> App de fitness gamificada estilo RPG: rutinas personalizadas por IA, XP, niveles, logros, rachas y seguimiento de progreso. Bilingüe (ES/EN), instalable como PWA.
+
+## Pages
+
+- [Inicio](/): Visión general de Vireon Fit y CTAs para empezar a entrenar.
+- [Planes y Precios](/pricing): Planes Free y Pro mensuales, trimestrales, semestrales y anuales en USD y EUR.
+- [Instalar la app](/install): Guía para instalar Vireon Fit como PWA en iOS, Android y escritorio.
+- [Acceder o registrarse](/auth): Inicio de sesión y registro de cuenta.

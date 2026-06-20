@@ -55,7 +55,7 @@ export function WorkoutCard({
           <div className="flex items-center gap-3 mt-2">
             <span className="text-xs text-xp font-semibold">+{xp} XP</span>
             <span className="text-xs text-muted-foreground">{duration}</span>
-            <span className="text-xs text-muted-foreground">{exercises} ejercicios</span>
+            <span className="text-xs text-muted-foreground">{exercises} {localStorage.getItem("vireon-locale") === "en" ? "exercises" : "ejercicios"}</span>
           </div>
         </div>
       </div>

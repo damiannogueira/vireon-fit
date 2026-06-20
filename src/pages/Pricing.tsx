@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, Crown, Sparkles, Zap, Gift, Users } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { SEO } from "@/components/SEO";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Plan {
@@ -21,7 +22,7 @@ interface Plan {
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const { t, formatPrice, currency, setCurrency } = useI18n();
+  const { t, formatPrice, currency, setCurrency, locale } = useI18n();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [tab] = useState<"individual">("individual");
   const [loading, setLoading] = useState(true);
@@ -65,9 +66,28 @@ const Pricing = () => {
     return <Zap className="w-5 h-5" />;
   };
 
+  const productJsonLd = useMemo(() => filtered.map(p => ({
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `Vireon Fit — ${p.name}`,
+    description: p.description,
+    offers: {
+      "@type": "Offer",
+      price: (currency === "USD" ? p.price_usd : p.price_eur).toFixed(2),
+      priceCurrency: currency,
+      availability: "https://schema.org/InStock",
+      url: "https://vireonfitapp.com/pricing",
+    },
+  })), [filtered, currency]);
+
+  const seoTitle = locale === "es" ? "Planes y precios — Vireon Fit" : "Pricing & Plans — Vireon Fit";
+  const seoDesc = locale === "es"
+    ? "Comparí planes Free y Pro de Vireon Fit: mensual, trimestral, semestral y anual en USD y EUR."
+    : "Compare Vireon Fit Free and Pro plans: monthly, quarterly, semi-annual and annual in USD and EUR.";
+
   return (
     <div className="min-h-screen bg-background pb-8">
-      {/* Header */}
+      <SEO title={seoTitle} description={seoDesc} path="/pricing" jsonLd={productJsonLd} />
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-secondary transition-colors">
