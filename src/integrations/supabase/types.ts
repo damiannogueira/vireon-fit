@@ -877,7 +877,16 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      security_definer_privileges: {
+        Row: {
+          anon_exec: boolean | null
+          auth_exec: boolean | null
+          proname: unknown
+          sec_def: boolean | null
+          svc_exec: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cancel_own_subscription: {

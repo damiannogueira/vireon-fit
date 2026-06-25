@@ -140,7 +140,10 @@ const Profile = () => {
       if (field === "height_cm") updateData.height_cm = value ? Number(value) : null;
       if (field === "weight_kg") updateData.weight_kg = value ? Number(value) : null;
       if (field === "fitness_level") updateData.fitness_level = value;
-      const { error } = await supabase.from("profiles").update(updateData).eq("user_id", user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update(updateData as never)
+        .eq("user_id", user.id);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["profile-page"] });
       toast.success(locale === "es" ? "Actualizado" : "Updated");

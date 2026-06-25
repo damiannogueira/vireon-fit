@@ -47,13 +47,29 @@ Deno.serve(async (req) => {
     // Check if image already exists
     const { data: exercise } = await supabase
       .from("exercises")
-      .select("id, name, muscle_group, image_url")
+      .select("id, name, muscle_group, image_url, gym_id")
       .eq("id", exercise_id)
       .single();
 
     if (!exercise) {
       return new Response(JSON.stringify({ error: "Exercise not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Authorization: only super-admin or gym-admin of the exercise's gym can (re)generate
+    const { data: isSuper } = await supabase.rpc("is_super_admin", { _user_id: user.id });
+    let allowed = isSuper === true;
+    if (!allowed && exercise.gym_id) {
+      const { data: isGymAdmin } = await supabase.rpc("is_gym_admin", {
+        _user_id: user.id,
+        _gym_id: exercise.gym_id,
+      });
+      allowed = isGymAdmin === true;
+    }
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

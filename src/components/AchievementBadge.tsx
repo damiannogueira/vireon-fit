@@ -24,12 +24,12 @@ export function AchievementBadge({ icon: Icon, title, unlocked, className }: Ach
         {unlocked ? (
           <Icon className="w-7 h-7 text-primary-foreground" />
         ) : (
-          <Lock className="w-5 h-5 text-muted-foreground/50" />
+          <Lock className="w-5 h-5 text-muted-foreground" />
         )}
       </div>
       <span className={cn(
         "text-[10px] font-medium text-center leading-tight max-w-[60px]",
-        unlocked ? "text-foreground" : "text-muted-foreground/50"
+        unlocked ? "text-foreground" : "text-muted-foreground"
       )}>
         {title}
       </span>
