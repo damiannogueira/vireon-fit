@@ -114,6 +114,15 @@ const Landing = () => {
               {locale === "es" ? "Ya tengo cuenta" : "I have an account"}
             </button>
           </div>
+
+          <div className="flex justify-center pb-2">
+            <button
+              onClick={() => navigate("/blog/fitness-rpg-guide")}
+              className="text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
+            >
+              {locale === "es" ? "Leé la guía: cómo entrenar como en un RPG" : "Read the guide: how to train like in an RPG"}
+            </button>
+          </div>
         </motion.div>
       </div>
     </div>

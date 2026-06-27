@@ -8,3 +8,4 @@
 - [Planes y Precios](/pricing): Planes Free y Pro mensuales, trimestrales, semestrales y anuales en USD y EUR.
 - [Instalar la app](/install): Guía para instalar Vireon Fit como PWA en iOS, Android y escritorio.
 - [Acceder o registrarse](/auth): Inicio de sesión y registro de cuenta.
+- [Guía Fitness RPG](/blog/fitness-rpg-guide): Cómo aplicar la gamificación (XP, niveles, rachas y logros) para sostener el entrenamiento a largo plazo. Bilingüe ES/EN.

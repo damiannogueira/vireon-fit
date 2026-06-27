@@ -19,6 +19,7 @@ import AdminPanel from "./pages/AdminPanel";
 import Pricing from "./pages/Pricing";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import FitnessRpgGuide from "./pages/blog/FitnessRpgGuide";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
               <Route path="/install" element={<Install />} />
+              <Route path="/blog/fitness-rpg-guide" element={<FitnessRpgGuide />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
