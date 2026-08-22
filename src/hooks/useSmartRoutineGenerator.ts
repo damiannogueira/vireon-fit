@@ -3,11 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 interface WarmupExercise {
-  name: string;
+  name_es: string;
+  name_en: string;
   duration_or_reps: string;
-  description: string;
+  description_es: string;
+  description_en: string;
 }
 
 interface PlanExercise {
@@ -16,15 +19,20 @@ interface PlanExercise {
   reps: number;
   rest_seconds: number;
   weight_suggestion_kg?: number;
-  intensity?: string;
-  description: string;
-  notes?: string;
+  intensity_es?: string;
+  intensity_en?: string;
+  description_es: string;
+  description_en: string;
+  notes_es?: string;
+  notes_en?: string;
 }
 
 interface PlanDay {
   day_number: number;
-  name: string;
-  description?: string;
+  name_es: string;
+  name_en: string;
+  description_es?: string;
+  description_en?: string;
   warmup: {
     duration_minutes: number;
     exercises: WarmupExercise[];
@@ -41,6 +49,7 @@ interface GeneratedPlan {
 
 export function useSmartRoutineGenerator() {
   const { user } = useAuth();
+  const { locale } = useI18n();
   const queryClient = useQueryClient();
   const [generating, setGenerating] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
@@ -61,7 +70,7 @@ export function useSmartRoutineGenerator() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ locale }),
         }
       );
 
@@ -81,7 +90,7 @@ export function useSmartRoutineGenerator() {
       return data;
     } catch (err: any) {
       console.error("Smart routine error:", err);
-      toast.error(err.message || "Error generating routine");
+      toast.error(err.message || (locale === "es" ? "Error al generar la rutina" : "Failed to generate routine"));
       return null;
     } finally {
       setGenerating(false);

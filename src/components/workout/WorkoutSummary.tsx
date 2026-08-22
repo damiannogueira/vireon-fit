@@ -21,14 +21,9 @@ interface WorkoutSummaryProps {
   completedSets: number;
   durationMinutes: number;
   exercises: ExerciseSummary[];
+  locale: "es" | "en";
   onClose: () => void;
 }
-
-const MUSCLE_GROUP_LABELS: Record<string, string> = {
-  chest: "Pecho", back: "Espalda", shoulders: "Hombros",
-  biceps: "Bíceps", triceps: "Tríceps", legs: "Piernas",
-  core: "Core", cardio: "Cardio", full_body: "Full Body",
-};
 
 export const WorkoutSummary = ({
   workoutName,
@@ -37,6 +32,7 @@ export const WorkoutSummary = ({
   completedSets,
   durationMinutes,
   exercises,
+  locale,
   onClose,
 }: WorkoutSummaryProps) => {
   const totalVolume = exercises.reduce((a, e) => a + e.totalVolume, 0);
@@ -66,7 +62,7 @@ export const WorkoutSummary = ({
             <Trophy className="w-10 h-10 text-primary" />
           </motion.div>
           <h1 className="text-2xl font-display font-bold text-foreground mb-1">
-            ¡Entrenamiento completado!
+            {locale === "es" ? "¡Entrenamiento completado!" : "Workout completed!"}
           </h1>
           <p className="text-sm text-muted-foreground">{workoutName}</p>
         </motion.div>
@@ -80,28 +76,28 @@ export const WorkoutSummary = ({
         >
           <StatBox
             icon={<Zap className="w-4 h-4" />}
-            label="XP Ganado"
+            label={locale === "es" ? "XP ganado" : "XP earned"}
             value={`+${xpEarned}`}
             color="text-primary"
             bgColor="bg-primary/10"
           />
           <StatBox
             icon={<Clock className="w-4 h-4" />}
-            label="Duración"
+            label={locale === "es" ? "Duración" : "Duration"}
             value={`${durationMinutes} min`}
             color="text-blue-400"
             bgColor="bg-blue-400/10"
           />
           <StatBox
             icon={<Dumbbell className="w-4 h-4" />}
-            label="Volumen Total"
+            label={locale === "es" ? "Volumen total" : "Total volume"}
             value={`${Math.round(totalVolume).toLocaleString()} kg`}
             color="text-orange-400"
             bgColor="bg-orange-400/10"
           />
           <StatBox
             icon={<Flame className="w-4 h-4" />}
-            label="Completado"
+            label={locale === "es" ? "Completado" : "Completed"}
             value={`${completionRate}%`}
             color="text-red-400"
             bgColor="bg-red-400/10"
@@ -119,11 +115,13 @@ export const WorkoutSummary = ({
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-5 h-5 text-primary" />
               <span className="text-sm font-bold text-primary">
-                ¡Progresión en {progressionCount} ejercicio{progressionCount > 1 ? "s" : ""}! 🔥
+                {locale === "es"
+                  ? `¡Progresión en ${progressionCount} ejercicio${progressionCount > 1 ? "s" : ""}! 🔥`
+                  : `Progress in ${progressionCount} exercise${progressionCount > 1 ? "s" : ""}! 🔥`}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Superaste tu sesión anterior. ¡Seguí así!
+              {locale === "es" ? "Superaste tu sesión anterior. ¡Seguí así!" : "You improved on your previous session. Keep it up!"}
             </p>
           </motion.div>
         )}
@@ -136,7 +134,7 @@ export const WorkoutSummary = ({
           className="mb-8"
         >
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">
-            Detalle por ejercicio
+            {locale === "es" ? "Detalle por ejercicio" : "Exercise breakdown"}
           </h3>
           <div className="space-y-2">
             {exercises.map((ex, i) => (
@@ -146,7 +144,7 @@ export const WorkoutSummary = ({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 + i * 0.05 }}
               >
-                <ExerciseRow exercise={ex} />
+                <ExerciseRow exercise={ex} locale={locale} />
               </motion.div>
             ))}
           </div>
@@ -160,7 +158,7 @@ export const WorkoutSummary = ({
           onClick={onClose}
           className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base shadow-[0_0_24px_hsl(var(--primary)/0.3)] transition-all active:scale-[0.97] hover:shadow-[0_0_32px_hsl(var(--primary)/0.4)] flex items-center justify-center gap-2"
         >
-          Volver al Dashboard
+          {locale === "es" ? "Volver al inicio" : "Back to Home"}
           <ChevronRight className="w-5 h-5" />
         </motion.button>
       </div>
@@ -186,7 +184,7 @@ function StatBox({ icon, label, value, color, bgColor }: {
   );
 }
 
-function ExerciseRow({ exercise }: { exercise: ExerciseSummary }) {
+function ExerciseRow({ exercise, locale }: { exercise: ExerciseSummary; locale: "es" | "en" }) {
   const hasProgression = exercise.progression && exercise.progression.previousWeight > 0;
   const isUp = exercise.progression?.isProgression;
 
@@ -212,11 +210,11 @@ function ExerciseRow({ exercise }: { exercise: ExerciseSummary }) {
         <p className="text-sm font-semibold text-foreground truncate">{exercise.name}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-muted-foreground">
-            {exercise.setsCompleted}/{exercise.totalSets} sets
+            {exercise.setsCompleted}/{exercise.totalSets} {locale === "es" ? "series" : "sets"}
           </span>
           <span className="text-xs text-muted-foreground">·</span>
           <span className="text-xs text-muted-foreground">
-            {exercise.avgWeight > 0 ? `${exercise.avgWeight}kg` : "Peso corporal"}
+            {exercise.avgWeight > 0 ? `${exercise.avgWeight}kg` : locale === "es" ? "Peso corporal" : "Bodyweight"}
           </span>
           <span className="text-xs text-muted-foreground">·</span>
           <span className="text-xs text-muted-foreground">

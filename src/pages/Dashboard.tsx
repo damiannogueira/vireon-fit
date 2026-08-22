@@ -12,6 +12,7 @@ import { StatCard } from "@/components/StatCard";
 import { ProUpsell } from "@/components/ProUpsell";
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "@/i18n";
+import { localizedField } from "@/i18n/dbLabels";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -111,7 +112,7 @@ const Dashboard = () => {
       // First check for personal AI-generated workouts
       const { data: personalWorkouts } = await supabase
         .from("workouts")
-        .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
+        .select("id, name, name_en, description, description_en, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
         .eq("created_by", user!.id)
         .eq("is_global", false)
         .order("created_at");
@@ -123,7 +124,7 @@ const Dashboard = () => {
       // Fallback to global workouts
       let query = supabase
         .from("workouts")
-        .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
+        .select("id, name, name_en, description, description_en, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
         .eq("is_global", true)
         .in("goal_type", [userGoal!, "general"])
         .order("created_at");
@@ -517,8 +518,8 @@ const Dashboard = () => {
                   <Play className="w-7 h-7 text-primary-foreground ml-0.5" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-foreground">{nextWorkout.name}</h3>
-                  <p className="text-sm text-muted-foreground">{nextWorkout.description}</p>
+                  <h3 className="text-lg font-bold text-foreground">{localizedField(nextWorkout, "name", locale)}</h3>
+                  <p className="text-sm text-muted-foreground">{localizedField(nextWorkout, "description", locale)}</p>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-xs font-semibold text-xp">+{(nextWorkout.workout_exercises?.length || 3) * 30} XP</span>
                     {nextWorkout.estimated_duration && (
@@ -634,7 +635,7 @@ const Dashboard = () => {
                       </span>
                     )}
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground truncate">{w.name}</h3>
+                  <h3 className="text-sm font-semibold text-foreground truncate">{localizedField(w, "name", locale)}</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     {w.estimated_duration && (
                       <span className="text-[10px] text-muted-foreground">{w.estimated_duration} min</span>

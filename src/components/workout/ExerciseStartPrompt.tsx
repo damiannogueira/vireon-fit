@@ -2,15 +2,12 @@ import { motion } from "framer-motion";
 import { Play, Flame, Info, ImageIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/i18n";
 
-const MOTIVATIONAL_MESSAGES = [
-  "¡Es tu momento! 🔥",
-  "¡Dale con todo! 💪",
-  "¡Sin excusas! ⚡",
-  "¡Vos podés! 🚀",
-  "¡A romperla! 🏆",
-  "¡Cada rep cuenta! 💥",
-];
+const MOTIVATIONAL_MESSAGES = {
+  es: ["¡Es tu momento! 🔥", "¡Dale con todo! 💪", "¡Sin excusas! ⚡", "¡Vos podés! 🚀", "¡A romperla! 🏆", "¡Cada rep cuenta! 💥"],
+  en: ["This is your moment! 🔥", "Give it your all! 💪", "No excuses! ⚡", "You've got this! 🚀", "Crush it! 🏆", "Every rep counts! 💥"],
+};
 
 interface ExerciseStartPromptProps {
   exerciseName: string;
@@ -23,16 +20,12 @@ interface ExerciseStartPromptProps {
   onStart: () => void;
 }
 
-const MUSCLE_GROUP_LABELS: Record<string, string> = {
-  chest: "Pecho",
-  back: "Espalda",
-  shoulders: "Hombros",
-  biceps: "Bíceps",
-  triceps: "Tríceps",
-  legs: "Piernas",
-  core: "Core",
-  cardio: "Cardio",
-  full_body: "Full Body",
+const MUSCLE_GROUP_LABELS: Record<string, { es: string; en: string }> = {
+  chest: { es: "Pecho", en: "Chest" }, back: { es: "Espalda", en: "Back" },
+  shoulders: { es: "Hombros", en: "Shoulders" }, biceps: { es: "Bíceps", en: "Biceps" },
+  triceps: { es: "Tríceps", en: "Triceps" }, legs: { es: "Piernas", en: "Legs" },
+  core: { es: "Core", en: "Core" }, cardio: { es: "Cardio", en: "Cardio" },
+  full_body: { es: "Cuerpo completo", en: "Full Body" },
 };
 
 export const ExerciseStartPrompt = ({
@@ -45,7 +38,9 @@ export const ExerciseStartPrompt = ({
   exerciseId,
   onStart,
 }: ExerciseStartPromptProps) => {
-  const message = MOTIVATIONAL_MESSAGES[(exerciseNumber - 1) % MOTIVATIONAL_MESSAGES.length];
+  const { locale } = useI18n();
+  const messages = MOTIVATIONAL_MESSAGES[locale];
+  const message = messages[(exerciseNumber - 1) % messages.length];
   const [showDesc, setShowDesc] = useState(!!description);
   const [imgSrc, setImgSrc] = useState<string | null>(imageUrl || null);
   const [loadingImg, setLoadingImg] = useState(false);
@@ -114,14 +109,14 @@ export const ExerciseStartPrompt = ({
 
       <div>
         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">
-          Ejercicio {exerciseNumber} de {totalExercises}
+          {locale === "es" ? "Ejercicio" : "Exercise"} {exerciseNumber} {locale === "es" ? "de" : "of"} {totalExercises}
         </p>
         <h3 className="text-2xl font-display font-bold text-foreground">
           {exerciseName}
         </h3>
         {muscleGroup && (
           <span className="inline-block mt-1 px-3 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-            {MUSCLE_GROUP_LABELS[muscleGroup] || muscleGroup}
+            {MUSCLE_GROUP_LABELS[muscleGroup]?.[locale] || muscleGroup}
           </span>
         )}
       </div>
@@ -137,7 +132,7 @@ export const ExerciseStartPrompt = ({
             <div className="flex items-center gap-2 mb-2">
               <Info className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="text-xs font-bold text-primary uppercase tracking-wider">
-                Cómo hacerlo
+                 {locale === "es" ? "Cómo hacerlo" : "How to do it"}
               </span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -160,7 +155,7 @@ export const ExerciseStartPrompt = ({
         className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold text-base shadow-[0_0_24px_hsl(var(--primary)/0.3)] transition-all active:scale-[0.97] hover:shadow-[0_0_32px_hsl(var(--primary)/0.4)]"
       >
         <Play className="w-5 h-5" />
-        Comenzar
+        {locale === "es" ? "Comenzar" : "Start"}
       </button>
     </motion.div>
   );

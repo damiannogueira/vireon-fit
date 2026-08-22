@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { localizedField, translateDbLabel } from "@/i18n/dbLabels";
 
 interface ExerciseLog {
   exercise_name: string;
@@ -50,7 +51,7 @@ function WorkoutDetailPanel({ logId }: { logId: string }) {
     <div className="space-y-2 pt-1">
       {exerciseLogs.map((ex, i) => (
         <div key={i} className="p-2.5 rounded-xl bg-secondary/50 border border-border/30">
-          <h5 className="text-xs font-semibold text-foreground mb-1.5">{ex.exercise_name}</h5>
+          <h5 className="text-xs font-semibold text-foreground mb-1.5">{translateDbLabel(ex.exercise_name, locale)}</h5>
           <div className="flex flex-wrap gap-1.5">
             {Array.from({ length: ex.sets_completed }).map((_, si) => (
               <span
@@ -78,7 +79,7 @@ export function WorkoutHistory() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workout_logs")
-        .select("id, started_at, completed_at, duration_minutes, xp_earned, workout_id, workouts(name)")
+        .select("id, started_at, completed_at, duration_minutes, xp_earned, workout_id, workouts(name, name_en)")
         .eq("user_id", user!.id)
         .not("completed_at", "is", null)
         .order("completed_at", { ascending: false })
@@ -122,7 +123,7 @@ export function WorkoutHistory() {
 
       <div className="space-y-2">
         {visible.map((log, i) => {
-          const workoutName = (log.workouts as any)?.name || (locale === "es" ? "Entrenamiento" : "Workout");
+          const workoutName = localizedField(log.workouts as any, "name", locale) || (locale === "es" ? "Entrenamiento" : "Workout");
           const isOpen = expandedLogId === log.id;
           return (
             <motion.div

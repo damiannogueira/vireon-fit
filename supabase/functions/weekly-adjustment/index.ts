@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
       let weightMultiplier: number;
       let repsModifier: number;
       let message: string;
+      let messageEn: string;
 
       if (completionRate >= 0.9 && consistencyScore >= 0.8) {
         // Great week → increase difficulty
@@ -165,24 +166,28 @@ Deno.serve(async (req) => {
         }
         adjustmentType = "increase";
         message = `¡Semana excelente! ${workoutsCompleted}/${preferredDays} sesiones completadas. Subimos la intensidad 🔥`;
+        messageEn = `Excellent week! ${workoutsCompleted}/${preferredDays} sessions completed. We are increasing the intensity 🔥`;
       } else if (completionRate >= 0.6) {
         // Decent week → maintain
         weightMultiplier = 1.0;
         repsModifier = 0;
         adjustmentType = "maintain";
         message = `Buena semana (${workoutsCompleted}/${preferredDays} sesiones). Mantenemos el nivel actual 💪`;
+        messageEn = `Good week (${workoutsCompleted}/${preferredDays} sessions). We are maintaining your current level 💪`;
       } else if (completionRate >= 0.3) {
         // Low completion → slight decrease
         weightMultiplier = 0.95;
         repsModifier = -1;
         adjustmentType = "decrease";
         message = `Semana tranquila (${workoutsCompleted}/${preferredDays}). Ajustamos para que sea más manejable 🎯`;
+        messageEn = `A lighter week (${workoutsCompleted}/${preferredDays}). We adjusted the load to make it more manageable 🎯`;
       } else {
         // Very low → significant decrease
         weightMultiplier = 0.9;
         repsModifier = -2;
         adjustmentType = "decrease";
         message = `Pocas sesiones esta semana (${workoutsCompleted}/${preferredDays}). Reducimos carga para retomar con confianza 👊`;
+        messageEn = `Only a few sessions this week (${workoutsCompleted}/${preferredDays}). We reduced the load so you can return confidently 👊`;
       }
 
       adjustments.push({
@@ -195,6 +200,7 @@ Deno.serve(async (req) => {
         weight_multiplier: Math.round(weightMultiplier * 1000) / 1000,
         reps_modifier: repsModifier,
         message,
+        message_en: messageEn,
       });
       processedCount++;
     }

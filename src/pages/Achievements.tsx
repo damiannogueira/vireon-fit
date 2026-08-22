@@ -6,6 +6,7 @@ import { XPBar } from "@/components/XPBar";
 import { WeeklyChallenge } from "@/components/WeeklyChallenge";
 import { EmptyState } from "@/components/EmptyState";
 import { useI18n } from "@/i18n";
+import { localizedField } from "@/i18n/dbLabels";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -20,7 +21,7 @@ const getWeekStart = () => {
 };
 
 const Achievements = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user } = useAuth();
 
   const { data: userAchievements } = useQuery({
@@ -113,7 +114,7 @@ const Achievements = () => {
   const achievementsList = allAchievements?.map(a => ({
     id: a.id,
     icon: iconMap[a.icon || "🏆"] || Trophy,
-    title: a.name,
+    title: localizedField(a, "name", locale),
     unlocked: unlockedIds.has(a.id),
   })) || [];
 
@@ -130,8 +131,6 @@ const Achievements = () => {
   ];
 
   const unlockedCount = displayAchievements.filter(a => a.unlocked).length;
-
-  const { locale } = useI18n();
 
   return (
     <div className="min-h-screen bg-background pb-24">

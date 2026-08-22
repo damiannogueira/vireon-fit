@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WeeklyAdjustment } from "@/hooks/useWeeklyAdjustment";
+import { localizedField } from "@/i18n/dbLabels";
 
 interface WeeklyAdjustmentCardProps {
   adjustment: WeeklyAdjustment;
@@ -61,7 +62,7 @@ export function WeeklyAdjustmentCard({ adjustment, locale }: WeeklyAdjustmentCar
           </div>
           
           <p className="text-sm font-semibold text-foreground mb-1">{adjustLabel}</p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{adjustment.message}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{localizedField(adjustment, "message", locale)}</p>
 
           {/* Metrics */}
           <div className="flex items-center gap-4 mt-3">

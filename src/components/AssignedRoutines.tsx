@@ -1,63 +1,45 @@
 import { motion } from "framer-motion";
-import { Dumbbell, Play, Clock, Loader2, Target, Check } from "lucide-react";
+import { Dumbbell, Play, Clock, Loader2, Check, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
+import { localizedField } from "@/i18n/dbLabels";
+import { useSmartRoutineGenerator } from "@/hooks/useSmartRoutineGenerator";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function AssignedRoutines() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { locale } = useI18n();
+  const { generate, generating } = useSmartRoutineGenerator();
 
-  // Fetch user's fitness goal and gender
-  const { data: userProfile } = useQuery({
-    queryKey: ["assigned-routines-profile", user?.id],
+  // Onboarding check
+  const { data: hasOnboarding } = useQuery({
+    queryKey: ["assigned-routines-onboarding", user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("onboarding_progress")
         .select("fitness_goal")
         .eq("user_id", user!.id)
         .maybeSingle();
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("gender")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      return { fitnessGoal: data?.fitness_goal || null, gender: prof?.gender || null };
+      return !!data?.fitness_goal;
     },
     enabled: !!user,
   });
 
-  // Personal + Global workouts
-  const userGender = userProfile?.gender;
-  const { data: globalWorkouts, isLoading } = useQuery({
-    queryKey: ["global-workouts", userGender, user?.id],
+  // Personal AI-generated workouts only
+  const { data: personalWorkouts, isLoading } = useQuery({
+    queryKey: ["personal-workouts", user?.id],
     queryFn: async () => {
-      // First check for personal AI-generated workouts
-      const { data: personalWorkouts } = await supabase
+      const { data, error } = await supabase
         .from("workouts")
-        .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
+        .select("id, name, name_en, description, description_en, estimated_duration, difficulty, workout_exercises(id)")
         .eq("created_by", user!.id)
         .eq("is_global", false)
         .order("created_at");
-
-      if (personalWorkouts && personalWorkouts.length > 0) {
-        return personalWorkouts;
-      }
-
-      // Fallback to global
-      let query = supabase
-        .from("workouts")
-        .select("id, name, description, estimated_duration, difficulty, goal_type, target_gender, workout_exercises(id)")
-        .eq("is_global", true)
-        .order("name");
-      if (userGender && userGender !== "other") {
-        query = query.in("target_gender", [userGender, "unisex"]);
-      }
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -79,6 +61,17 @@ export function AssignedRoutines() {
     },
     enabled: !!user,
   });
+
+  const handleGenerate = async () => {
+    const result = await generate();
+    if (result) {
+      toast.success(
+        locale === "es"
+          ? `🧠 Plan "${result.plan_name}" generado con ${result.days?.length || 0} días`
+          : `🧠 Plan "${result.plan_name}" generated with ${result.days?.length || 0} days`
+      );
+    }
+  };
 
   const difficultyLabel = (d: string | null) => {
     const map: Record<string, string> = {
@@ -112,32 +105,57 @@ export function AssignedRoutines() {
     );
   }
 
-  let routines = (globalWorkouts || []).map(w => ({
+  const routines = (personalWorkouts || []).map(w => ({
     id: w.id,
-    name: w.name,
-    description: w.description,
+    name: localizedField(w, "name", locale),
+    description: localizedField(w, "description", locale),
     duration: w.estimated_duration,
     difficulty: w.difficulty,
-    goalType: (w as any).goal_type,
     exerciseCount: w.workout_exercises?.length || 0,
-    notes: null,
   }));
-
-  // Filter by user's goal
-  if (userProfile?.fitnessGoal) {
-    routines = routines.filter(r => r.goalType === userProfile.fitnessGoal);
-  }
 
   if (routines.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 px-4">
         <Dumbbell className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-        <p className="text-muted-foreground text-sm mb-2">
-          {locale === "es" ? "No hay rutinas disponibles para tu objetivo" : "No routines available for your goal"}
+        <p className="text-foreground text-sm font-semibold mb-1">
+          {locale === "es" ? "Aún no tenés rutinas" : "You don't have routines yet"}
         </p>
-        <p className="text-xs text-muted-foreground/70">
-          {locale === "es" ? "Cambiá tu objetivo desde Perfil para ver otras rutinas" : "Change your goal from Profile to see other routines"}
+        <p className="text-xs text-muted-foreground mb-5">
+          {!hasOnboarding
+            ? (locale === "es"
+                ? "Completá tu configuración inicial para generar tu plan."
+                : "Complete your setup first to generate your plan.")
+            : (locale === "es"
+                ? "Generá tu rutina personalizada con inteligencia artificial 🤖"
+                : "Generate your personalized routine with AI 🤖")}
         </p>
+        {!hasOnboarding ? (
+          <button
+            onClick={() => navigate("/onboarding")}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            {locale === "es" ? "Configurar ahora" : "Set up now"}
+          </button>
+        ) : (
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {locale === "es" ? "Generando..." : "Generating..."}
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                {locale === "es" ? "🧠 Generar mi rutina" : "🧠 Generate my routine"}
+              </>
+            )}
+          </button>
+        )}
       </div>
     );
   }
@@ -146,8 +164,20 @@ export function AssignedRoutines() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-display font-bold text-foreground">
-          {locale === "es" ? "Catálogo de Rutinas" : "Routine Catalog"}
+          {locale === "es" ? "Tus Rutinas" : "Your Routines"}
         </h2>
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-xs font-semibold text-primary hover:bg-primary/15 transition-colors disabled:opacity-50"
+        >
+          {generating ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5" />
+          )}
+          {locale === "es" ? "Regenerar con IA" : "Regenerate with AI"}
+        </button>
       </div>
 
       {routines.map((r, i) => {

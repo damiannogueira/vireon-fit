@@ -57,7 +57,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Authorization: only super-admin or gym-admin of the exercise's gym can (re)generate
+    // Any authenticated user can read an already-generated image.
+    if (exercise.image_url) {
+      return new Response(JSON.stringify({ image_url: exercise.image_url }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Only super-admin (or gym-admin of the exercise's gym) can trigger a new generation.
     const { data: isSuper } = await supabase.rpc("is_super_admin", { _user_id: user.id });
     let allowed = isSuper === true;
     if (!allowed && exercise.gym_id) {
@@ -68,13 +75,8 @@ Deno.serve(async (req) => {
       allowed = isGymAdmin === true;
     }
     if (!allowed) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (exercise.image_url) {
-      return new Response(JSON.stringify({ image_url: exercise.image_url }), {
+      // Non-admin viewer with no image yet: no-op, don't error.
+      return new Response(JSON.stringify({ image_url: null }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

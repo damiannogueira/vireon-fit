@@ -5,11 +5,12 @@ import { cn } from "@/lib/utils";
 
 interface RestTimerProps {
   seconds: number;
+  locale: "es" | "en";
   onComplete: () => void;
   onSkip: () => void;
 }
 
-export const RestTimer = ({ seconds, onComplete, onSkip }: RestTimerProps) => {
+export const RestTimer = ({ seconds, locale, onComplete, onSkip }: RestTimerProps) => {
   const [remaining, setRemaining] = useState(seconds);
   const bellPlayed = useRef(false);
 
@@ -58,7 +59,7 @@ export const RestTimer = ({ seconds, onComplete, onSkip }: RestTimerProps) => {
       <div className="flex flex-col items-center gap-6">
         <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
           <Timer className="w-4 h-4" />
-          <span>DESCANSO</span>
+          <span>{locale === "es" ? "DESCANSO" : "REST"}</span>
         </div>
 
         {/* Circular progress */}
@@ -92,7 +93,9 @@ export const RestTimer = ({ seconds, onComplete, onSkip }: RestTimerProps) => {
         </div>
 
         <p className="text-muted-foreground text-sm">
-          {remaining <= 0 ? "¡Vamos! 💪" : "Respirá y preparate"}
+          {remaining <= 0
+            ? locale === "es" ? "¡Vamos! 💪" : "Let's go! 💪"
+            : locale === "es" ? "Respirá y preparate" : "Breathe and get ready"}
         </p>
 
         <button
@@ -100,7 +103,7 @@ export const RestTimer = ({ seconds, onComplete, onSkip }: RestTimerProps) => {
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-all"
         >
           <X className="w-4 h-4" />
-          Saltar descanso
+          {locale === "es" ? "Saltar descanso" : "Skip rest"}
         </button>
       </div>
     </motion.div>

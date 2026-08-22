@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { AssignedRoutines } from "@/components/AssignedRoutines";
 import { ProUpsell } from "@/components/ProUpsell";
 import { useI18n } from "@/i18n";
+import { localizedField, translateDbLabel } from "@/i18n/dbLabels";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription, FREE_LIMITS } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,8 @@ interface ExerciseState {
   exerciseId: string;
   name: string;
   description: string;
+  displayName: string;
+  displayDescription: string;
   muscleGroup: string;
   sets: SetData[];
   restSeconds: number;
@@ -88,7 +91,7 @@ const Workout = () => {
       if (!workoutId) return null;
       const { data, error } = await supabase
         .from("workouts")
-        .select("id, name, description, estimated_duration, gym_id")
+        .select("id, name, name_en, description, description_en, estimated_duration, gym_id")
         .eq("id", workoutId)
         .maybeSingle();
       if (error) throw error;
@@ -102,7 +105,7 @@ const Workout = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("workout_exercises")
-        .select("id, exercise_id, sets, reps, rest_seconds, sort_order, default_weight, exercises(name, description, muscle_group, image_url)")
+        .select("id, exercise_id, sets, reps, rest_seconds, sort_order, default_weight, exercises(name, name_en, description, description_en, muscle_group, image_url)")
         .eq("workout_id", workoutId!)
         .order("sort_order");
       if (error) throw error;
@@ -178,6 +181,8 @@ const Workout = () => {
         exerciseId: we.exercise_id,
         name,
         description: (we.exercises as any)?.description || "",
+        displayName: localizedField(we.exercises as any, "name", locale) || name,
+        displayDescription: localizedField(we.exercises as any, "description", locale),
         muscleGroup,
         restSeconds: we.rest_seconds || 60,
         progression,
@@ -190,10 +195,10 @@ const Workout = () => {
     });
     setExercises(mapped);
     setInitialized(true);
-  }, [workoutExercisesData, historyMap, initialized, userProfile, exerciseNames.length]);
+  }, [workoutExercisesData, historyMap, initialized, userProfile, exerciseNames.length, locale, weeklyMultiplier, weeklyRepsModifier]);
 
   const activeExercises = initialized ? exercises : [];
-  const workoutTitle = workout?.name || "Workout";
+  const workoutTitle = localizedField(workout, "name", locale) || "Workout";
 
   // Collect muscle groups for warmup
   const workoutMuscleGroups = useMemo(() => {
@@ -291,7 +296,7 @@ const Workout = () => {
       setShowSummary(true);
     },
     onError: (err: any) => {
-      toast.error(err.message || "Error al guardar el entreno");
+      toast.error(err.message || (locale === "es" ? "Error al guardar el entreno" : "Failed to save workout"));
     },
   });
 
@@ -370,6 +375,7 @@ const Workout = () => {
         <WarmupPhase
           muscleGroups={workoutMuscleGroups}
           onComplete={() => setWarmupCompleted(true)}
+          locale={locale}
         />
       </div>
     );
@@ -441,7 +447,7 @@ const Workout = () => {
       : 0;
     const totalVolume = completedSetsList.reduce((a, s) => a + s.weight * s.reps, 0);
     return {
-      name: ex.name,
+      name: ex.displayName,
       muscleGroup: ex.muscleGroup,
       setsCompleted: completedSetsList.length,
       totalSets: ex.sets.length,
@@ -461,6 +467,7 @@ const Workout = () => {
         completedSets={summaryData.completedSetsCount}
         durationMinutes={summaryData.durationMinutes}
         exercises={summaryExercises}
+        locale={locale}
         onClose={() => navigate("/dashboard")}
       />
     );
@@ -506,7 +513,7 @@ const Workout = () => {
                   : "bg-secondary text-muted-foreground"
               )}
             >
-              {i + 1}. {ex.name}
+              {i + 1}. {ex.displayName}
             </button>
           );
         })}
@@ -517,6 +524,7 @@ const Workout = () => {
         {showRestTimer && (
           <RestTimer
             seconds={restSeconds}
+            locale={locale}
             onComplete={() => setShowRestTimer(false)}
             onSkip={() => setShowRestTimer(false)}
           />
@@ -534,10 +542,10 @@ const Workout = () => {
         >
           {!isCurrentExerciseStarted ? (
             <ExerciseStartPrompt
-              exerciseName={currentExercise.name}
+              exerciseName={currentExercise.displayName}
               exerciseNumber={currentExIdx + 1}
               totalExercises={activeExercises.length}
-              description={currentExercise.description}
+              description={currentExercise.displayDescription}
               muscleGroup={currentExercise.muscleGroup}
               exerciseId={currentExercise.exerciseId}
               onStart={() => handleStartExercise(currentExIdx)}
@@ -545,7 +553,7 @@ const Workout = () => {
           ) : (
             <>
               <div className="mb-4">
-                <h2 className="text-xl font-display font-bold text-foreground">{currentExercise.name}</h2>
+                <h2 className="text-xl font-display font-bold text-foreground">{currentExercise.displayName}</h2>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Timer className="w-3 h-3" /> {currentExercise.restSeconds}s {t.workout.rest}
@@ -575,10 +583,10 @@ const Workout = () => {
                       "text-xs font-semibold",
                       currentExercise.progression.isProgression ? "text-primary" : "text-foreground"
                     )}>
-                      {currentExercise.progression.message}
+                      {translateDbLabel(currentExercise.progression.message, locale)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Anterior: {currentExercise.progression.previousWeight}kg × {currentExercise.progression.previousReps} reps
+                      {locale === "es" ? "Anterior" : "Previous"}: {currentExercise.progression.previousWeight}kg × {currentExercise.progression.previousReps} reps
                     </p>
                   </div>
                 </motion.div>

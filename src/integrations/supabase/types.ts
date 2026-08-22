@@ -18,11 +18,13 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          description_en: string | null
           gym_id: string | null
           icon: string | null
           id: string
           is_global: boolean | null
           name: string
+          name_en: string | null
           requirement_type: string | null
           requirement_value: number | null
           xp_reward: number | null
@@ -30,11 +32,13 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          description_en?: string | null
           gym_id?: string | null
           icon?: string | null
           id?: string
           is_global?: boolean | null
           name: string
+          name_en?: string | null
           requirement_type?: string | null
           requirement_value?: number | null
           xp_reward?: number | null
@@ -42,11 +46,13 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          description_en?: string | null
           gym_id?: string | null
           icon?: string | null
           id?: string
           is_global?: boolean | null
           name?: string
+          name_en?: string | null
           requirement_type?: string | null
           requirement_value?: number | null
           xp_reward?: number | null
@@ -95,32 +101,38 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          description_en: string | null
           gym_id: string | null
           id: string
           image_url: string | null
           is_global: boolean | null
           muscle_group: Database["public"]["Enums"]["muscle_group"]
           name: string
+          name_en: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
+          description_en?: string | null
           gym_id?: string | null
           id?: string
           image_url?: string | null
           is_global?: boolean | null
           muscle_group: Database["public"]["Enums"]["muscle_group"]
           name: string
+          name_en?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
+          description_en?: string | null
           gym_id?: string | null
           id?: string
           image_url?: string | null
           is_global?: boolean | null
           muscle_group?: Database["public"]["Enums"]["muscle_group"]
           name?: string
+          name_en?: string | null
         }
         Relationships: [
           {
@@ -576,6 +588,7 @@ export type Database = {
           created_at: string
           id: string
           message: string | null
+          message_en: string | null
           reps_modifier: number
           user_id: string
           volume_change_pct: number
@@ -589,6 +602,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string | null
+          message_en?: string | null
           reps_modifier?: number
           user_id: string
           volume_change_pct?: number
@@ -602,6 +616,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string | null
+          message_en?: string | null
           reps_modifier?: number
           user_id?: string
           volume_change_pct?: number
@@ -827,6 +842,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          description_en: string | null
           difficulty: Database["public"]["Enums"]["fitness_level"] | null
           estimated_duration: number | null
           goal_type: string | null
@@ -834,6 +850,7 @@ export type Database = {
           id: string
           is_global: boolean | null
           name: string
+          name_en: string | null
           target_gender: string | null
           updated_at: string
         }
@@ -841,6 +858,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          description_en?: string | null
           difficulty?: Database["public"]["Enums"]["fitness_level"] | null
           estimated_duration?: number | null
           goal_type?: string | null
@@ -848,6 +866,7 @@ export type Database = {
           id?: string
           is_global?: boolean | null
           name: string
+          name_en?: string | null
           target_gender?: string | null
           updated_at?: string
         }
@@ -855,6 +874,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          description_en?: string | null
           difficulty?: Database["public"]["Enums"]["fitness_level"] | null
           estimated_duration?: number | null
           goal_type?: string | null
@@ -862,6 +882,7 @@ export type Database = {
           id?: string
           is_global?: boolean | null
           name?: string
+          name_en?: string | null
           target_gender?: string | null
           updated_at?: string
         }

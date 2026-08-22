@@ -123,6 +123,20 @@ const Landing = () => {
               {locale === "es" ? "Leé la guía: cómo entrenar como en un RPG" : "Read the guide: how to train like in an RPG"}
             </button>
           </div>
+
+          <div className="flex justify-center items-center gap-3 pt-1 pb-2 text-[11px] text-muted-foreground">
+            <button onClick={() => navigate("/legal/terms")} className="hover:text-foreground transition-colors">
+              {locale === "es" ? "Términos" : "Terms"}
+            </button>
+            <span>·</span>
+            <button onClick={() => navigate("/legal/privacy")} className="hover:text-foreground transition-colors">
+              {locale === "es" ? "Privacidad" : "Privacy"}
+            </button>
+            <span>·</span>
+            <button onClick={() => navigate("/legal/cookies")} className="hover:text-foreground transition-colors">
+              Cookies
+            </button>
+          </div>
         </motion.div>
       </div>
     </div>

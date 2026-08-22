@@ -11,6 +11,7 @@ export interface WeeklyAdjustment {
   weight_multiplier: number;
   reps_modifier: number;
   message: string;
+  message_en?: string | null;
 }
 
 export function useWeeklyAdjustment(userId: string | undefined) {
